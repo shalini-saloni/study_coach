@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Model files (optional but recommended)
+models/*.pkl
+
+# Data files (if large)
+data/raw/
+data/processed/
+
+# Streamlit cache
+.streamlit/ 
