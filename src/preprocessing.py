@@ -2,8 +2,15 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
-def load_data(path):
-    df = pd.read_csv(path, sep=";")
+def load_and_merge(mat_path, por_path):
+    mat = pd.read_csv(mat_path, sep=";")
+    por = pd.read_csv(por_path, sep=";")
+
+    mat["subject"] = "math"
+    por["subject"] = "portuguese"
+
+    df = pd.concat([mat, por], ignore_index=True)
+
     return df
 
 def create_risk_label(df):
@@ -19,9 +26,13 @@ def create_risk_label(df):
     return df
 
 def clean_and_encode(df, target="G3", task="regression"):
+    df = df.dropna()
     df = df.drop_duplicates()
 
-    if target == "G3":
+    if task == "classification":
+        df = df.drop(columns=["G1", "G2", "G3"])
+
+    elif task == "regression":
         if "G1" in df.columns:
             df = df.drop(columns=["G1", "G2"])
 
@@ -40,8 +51,8 @@ def scale_features(X_train, X_test):
 
     return X_train_scaled, X_test_scaled, scaler
 
-def preprocess_pipeline(path, target="G3", task="regression", test_size=0.2):
-    df = load_data(path)
+def preprocess_pipeline(mat_path, por_path, target="G3", task="regression", test_size=0.2):
+    df = load_and_merge(mat_path, por_path)
 
     if task == "classification":
         df = create_risk_label(df)
