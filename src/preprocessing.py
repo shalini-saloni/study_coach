@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
@@ -41,7 +42,7 @@ def clean_and_encode(df, target="G3", task="regression"):
 
     X = pd.get_dummies(X, drop_first=True)
 
-    return X, y
+    return X, y, df
 
 def scale_features(X_train, X_test):
     scaler = StandardScaler()
@@ -58,12 +59,32 @@ def preprocess_pipeline(mat_path, por_path, target="G3", task="regression", test
         df = create_risk_label(df)
         target = "risk_level"
 
-    X, y = clean_and_encode(df, target=target, task=task)
+    X, y, cleaned_df = clean_and_encode(df, target=target, task=task)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42
-    )
+    if task == "classification":
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=42,
+            stratify=y
+        )
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=42
+        )
 
     X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test)
 
-    return X_train_scaled, X_test_scaled, y_train, y_test, scaler
+    os.makedirs("data/processed", exist_ok=True)
+    cleaned_df.to_csv("data/processed/cleaned_dataset.csv", index=False)
+
+    print("Dataset shape after preprocessing:", cleaned_df.shape)
+    print("Target distribution:\n", y.value_counts())
+
+    feature_names = X.columns
+
+    return X_train_scaled, X_test_scaled, y_train, y_test, scaler, feature_names
