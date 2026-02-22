@@ -34,3 +34,13 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Environment
+
+Create a `.env.local` file in the `frontend` folder (you can copy from `.env.local.example`) and set `BACKEND_URL` to point to your ML backend service. Example:
+
+```
+BACKEND_URL=http://localhost:5000
+```
+
+The Next.js server-side API route (`/api/predict`) will use `process.env.BACKEND_URL` to proxy requests to your backend. If `BACKEND_URL` is not set the frontend falls back to local mock predictions.

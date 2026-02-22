@@ -52,9 +52,29 @@ export default function StudentForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Store form data in sessionStorage and navigate to recommendations
-    sessionStorage.setItem("studentData", JSON.stringify(formData));
-    router.push("/recommendations");
+    // Store form data and request prediction from the API
+    try {
+      const res = await fetch('/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const json = res.ok ? await res.json() : null;
+      sessionStorage.setItem('studentData', JSON.stringify(formData));
+      if (json) {
+        try { sessionStorage.setItem('prediction', JSON.stringify(json)); } catch (e) {}
+      } else {
+        // Clear any stale prediction
+        try { sessionStorage.removeItem('prediction'); } catch (e) {}
+      }
+    } catch (err) {
+      console.error('Failed to fetch prediction:', err);
+      // Still store form data and continue to recommendations page
+      try { sessionStorage.setItem('studentData', JSON.stringify(formData)); } catch (e) {}
+    }
+
+    router.push('/recommendations');
   };
 
   return (

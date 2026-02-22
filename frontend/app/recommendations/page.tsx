@@ -54,18 +54,52 @@ export default function Recommendations() {
 
     const parsed = JSON.parse(data);
     setStudentData(parsed);
-    
-    // Calculate risk level based on various factors
-    const risk = calculateRiskLevel(parsed);
-    setRiskLevel(risk);
-    
-    // Generate mock predicted score (in production, this would come from ML model)
-    const score = generatePredictedScore(parsed, risk);
-    setPredictedScore(score);
-    
-    // Generate recommendations
-    const recs = generateRecommendations(parsed, risk);
-    setRecommendations(recs);
+    // Try to use cached prediction if the form previously stored it
+    const cached = sessionStorage.getItem("prediction");
+    if (cached) {
+      try {
+        const pred = JSON.parse(cached);
+        if (pred) {
+          setPredictedScore(Number(pred.predictedGrade ?? pred.predicted_score ?? 0));
+          setRiskLevel(pred.riskLevel ?? pred.risk_level ?? calculateRiskLevel(parsed));
+          setRecommendations(pred.recommendations ?? pred.recs ?? generateRecommendations(parsed, pred.riskLevel ?? calculateRiskLevel(parsed)));
+          return;
+        }
+      } catch (e) {
+        // ignore parse errors and fall through to fetching
+      }
+    }
+
+    // Otherwise call the local API route which will proxy to the ML backend
+    (async () => {
+      try {
+        const res = await fetch('/api/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(parsed),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          setPredictedScore(Number(json.predictedGrade ?? json.predicted_grade ?? json.predicted_score ?? 0));
+          setRiskLevel(json.riskLevel ?? json.risk_level ?? calculateRiskLevel(parsed));
+          setRecommendations(json.recommendations ?? json.recs ?? generateRecommendations(parsed, json.riskLevel ?? calculateRiskLevel(parsed)));
+          // cache prediction for quick reloads
+          try { sessionStorage.setItem('prediction', JSON.stringify(json)); } catch (e) {}
+          return;
+        }
+      } catch (err) {
+        console.error('Prediction request failed', err);
+      }
+
+      // Fallback to local calculation if API fails
+      const risk = calculateRiskLevel(parsed);
+      setRiskLevel(risk);
+      const score = generatePredictedScore(parsed, risk);
+      setPredictedScore(score);
+      const recs = generateRecommendations(parsed, risk);
+      setRecommendations(recs);
+    })();
   }, [router]);
 
   const calculateRiskLevel = (data: StudentData): string => {

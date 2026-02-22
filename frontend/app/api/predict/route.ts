@@ -3,19 +3,33 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const studentData = await request.json();
-    
-    // TODO: Connect to Python backend API
-    // For now, return mock predictions
-    // In production, this would call: fetch('http://localhost:5000/predict', { ... })
-    
-    // Mock prediction logic (replace with actual ML model API call)
+    // Call the ML backend using an environment-configured URL
+    const backendUrl = process.env.BACKEND_URL || process.env.ML_API_URL || "";
+
+    if (backendUrl) {
+      try {
+        const res = await fetch(`${backendUrl.replace(/\/$/, "")}/predict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(studentData),
+        });
+
+        const json = await res.json();
+        return NextResponse.json(json, { status: res.status });
+      } catch (err) {
+        // Fall through to mock on error
+        console.error("Error calling backend predict API:", err);
+      }
+    }
+
+    // Fallback: return mock predictions when no backend configured or call fails
     const mockPrediction = {
       predictedGrade: calculateMockGrade(studentData),
       riskLevel: calculateMockRisk(studentData),
       confidence: 0.85,
-      recommendations: generateMockRecommendations(studentData)
+      recommendations: generateMockRecommendations(studentData),
     };
-    
+
     return NextResponse.json(mockPrediction);
   } catch (error) {
     return NextResponse.json(
