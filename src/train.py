@@ -71,12 +71,14 @@ def train_model():
     print(f"\nSelected Best Model: {best_model_name}")
 
 
-    # 6: Save best Model 
+    # 6: Save best Model and Scaler
 
     os.makedirs("models", exist_ok=True)
     joblib.dump(best_model, "models/final_model.pkl")
+    joblib.dump(scaler, "models/scaler.pkl")
 
     print("\nModel saved successfully in models/final_model.pkl")
+    print("Scaler saved successfully in models/scaler.pkl")
 
     return best_model
     
