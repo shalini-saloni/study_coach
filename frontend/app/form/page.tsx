@@ -120,7 +120,7 @@ const CardPicker = ({
   value, options, onPick,
 }: {
   value: string;
-  options: { v: string; label: string; Icon: () => JSX.Element }[];
+  options: { v: string; label: string; Icon: () => React.ReactNode }[];
   onPick: (v: string) => void;
 }) => (
   <div className="grid grid-cols-2 gap-3">
