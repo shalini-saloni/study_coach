@@ -2,7 +2,7 @@
 
 An intelligent study coaching application that provides personalized academic recommendations based on student data analysis and machine learning predictions.
 
-## 🌟 Features
+## Features
 
 - **Modern Web Interface**: Beautiful, responsive Next.js frontend with intuitive user experience
 - **Comprehensive Student Profiling**: Collects detailed information across multiple dimensions:
@@ -15,7 +15,7 @@ An intelligent study coaching application that provides personalized academic re
 - **Visual Analytics**: Interactive dashboards showing key performance indicators
 - **Risk Assessment**: Identifies at-risk students for early intervention
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 study_coach/
@@ -38,7 +38,7 @@ study_coach/
 └── requirements.txt      # Python dependencies
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -107,7 +107,7 @@ BACKEND_URL=http://localhost:5000
 4. **Open your browser**:
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-## 📱 Application Flow
+## Application Flow
 
 1. **Landing Page**: Users are greeted with LearnScope.ai branding and a call-to-action button
 2. **Student Form**: Comprehensive multi-section form collecting:
@@ -123,7 +123,7 @@ BACKEND_URL=http://localhost:5000
    - Personalized study recommendations
    - Printable report
 
-## 🎯 Features in Detail
+## Features in Detail
 
 ### Student Data Collection
 
@@ -150,7 +150,7 @@ The system analyzes student data and generates tailored recommendations based on
 - Color-coded status indicators (good/average/needs attention)
 - Responsive design for all devices
 
-## 🔧 Technology Stack
+## Technology Stack
 
 ### Frontend
 - **Framework**: Next.js 16 with App Router
@@ -164,7 +164,7 @@ The system analyzes student data and generates tailored recommendations based on
 - **Data Processing**: pandas, StandardScaler
 - **Model**: Classification/Regression models for grade prediction
 
-## 📊 Dataset
+## Dataset
 
 The application uses the Student Performance Dataset which includes:
 - **Mathematics Course**: 395 students
@@ -172,7 +172,7 @@ The application uses the Student Performance Dataset which includes:
 - **Features**: 33 attributes per student
 - **Target**: Final grade (G3) on a 0-20 scale
 
-## 🎨 UI Design
+## UI Design
 
 - Modern gradient backgrounds
 - Dark mode support
@@ -182,7 +182,7 @@ The application uses the Student Performance Dataset which includes:
 - Accessible form inputs with clear labels
 - Icon-based visual hierarchy
 
-## 🔮 Future Enhancements
+## Future Enhancements
 
 - [ ] Connect frontend to Python ML backend via API
 - [ ] User authentication and profiles
@@ -194,27 +194,4 @@ The application uses the Student Performance Dataset which includes:
 - [ ] Integration with learning management systems
 - [ ] Advanced analytics and visualizations
 - [ ] A/B testing different recommendation strategies
-
-## 📝 Data Privacy
-
-This project handles sensitive student information. Future production deployments should implement:
-- Secure authentication
-- Data encryption
-- GDPR compliance
-- Privacy policy
-- Consent mechanisms
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is for educational purposes.
-
-## 🙏 Acknowledgments
-
-- Student Performance Dataset from UCI Machine Learning Repository
-- Next.js and React teams for excellent documentation
-- Tailwind CSS for the utility-first CSS framework
 
