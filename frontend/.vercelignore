@@ -1,0 +1,14 @@
+# Files to ignore when deploying to Vercel
+src/
+data/
+models/
+.git
+.env.local
+*.pyc
+__pycache__
+.gitignore
+README.md
+ARCHITECTURE.md
+QUICKSTART.md
+requirements.txt
+render.yaml

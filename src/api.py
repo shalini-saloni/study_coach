@@ -234,9 +234,11 @@ def health():
 if __name__ == '__main__':
     print("🚀 Starting LearnScope.ai API...")
     load_model()
-    print("📡 Running on http://localhost:5001")
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    print(f"📡 Running on http://0.0.0.0:{port}")
     print("📝 API endpoints:")
     print("   GET  /          - API info")
     print("   POST /predict   - Make predictions")
     print("   GET  /health    - Health check")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=debug, host='0.0.0.0', port=port)
