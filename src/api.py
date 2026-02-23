@@ -112,9 +112,17 @@ def predict():
                 risk_level = determine_risk_level(prediction_score)
         
         # Generate recommendations
-        sys.path.insert(0, os.path.dirname(__file__))
-        from recommendation import generate_recommendations
-        recommendations = generate_recommendations(data, risk_level)
+        try:
+            sys.path.insert(0, os.path.dirname(__file__))
+            from recommendation import generate_recommendations
+            recommendations = generate_recommendations(data, risk_level)
+        except ImportError:
+            # Fallback if recommendation module doesn't exist
+            recommendations = [
+                "Focus on your studies regularly",
+                "Practice consistently to improve performance",
+                "Seek help from teachers or tutors when needed"
+            ]
         
         # Return prediction
         return jsonify({
