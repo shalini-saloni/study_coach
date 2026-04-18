@@ -48,26 +48,62 @@ export async function POST(request: Request) {
     // Try Python backend first
     const pythonBackendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001/predict';
     try {
+      // Convert flat format to nested format for backend
+      const requestBody = {
+        student_data: studentData,
+        goal: {
+          priority: 'medium',
+          target_grade: 'Improve overall academic performance'
+        }
+      };
+
       const response = await fetch(pythonBackendUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(studentData),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(15000), // Increased timeout for LLM calls
       });
 
       if (!response.ok) throw new Error(`Backend returned ${response.status}`);
 
       const prediction = await response.json();
-      const risk = prediction.risk_level || calculateMockRisk(studentData);
-      const grade = prediction.predicted_grade ?? calculateMockGrade(studentData);
+      
+      // Handle new backend response structure
+      const riskCategory = prediction.risk_level?.category || prediction.risk_level || calculateMockRisk(studentData);
+      const gradeValue = prediction.predicted_grade?.value || prediction.predicted_grade || calculateMockGrade(studentData);
+      
+      // Transform AI coaching structure to match frontend expectations
+      let transformedAiCoaching = null;
+      if (prediction.ai_coaching) {
+        transformedAiCoaching = {
+          diagnosis_explanation: prediction.ai_coaching.learning_diagnosis || '',
+          study_plan: prediction.ai_coaching.study_plan || { overview: '', days: [] },
+          resources: prediction.ai_coaching.resources || [],
+          next_steps: prediction.ai_coaching.next_steps || [],
+          ai_generated: prediction.ai_coaching.ai_generated || false
+        };
+      }
+
+      // Transform diagnosis structure
+      let transformedDiagnosis = null;
+      if (prediction.diagnosis) {
+        transformedDiagnosis = {
+          weaknesses: prediction.diagnosis.weaknesses || [],
+          strengths: prediction.diagnosis.strengths || [],
+          reason: prediction.diagnosis.reason || '',
+          profile: prediction.diagnosis.profile || '',
+          patterns: prediction.diagnosis.patterns || [],
+          recommendations: prediction.diagnosis.recommendations || []
+        };
+      }
 
       return NextResponse.json({
-        predictedGrade: grade,
-        riskLevel: risk,
-        confidence: prediction.confidence ?? 0.85,
-        diagnosis: prediction.diagnosis ?? null,
-        recommendations: prediction.recommendations ?? generateRichRecommendations(studentData, risk),
-        aiCoaching: prediction.ai_coaching ?? null,
+        predictedGrade: gradeValue,
+        riskLevel: riskCategory,
+        confidence: prediction.predicted_grade?.confidence ?? prediction.confidence ?? 0.85,
+        diagnosis: transformedDiagnosis,
+        recommendations: generateRichRecommendations(studentData, riskCategory),
+        aiCoaching: transformedAiCoaching,
         fromModel: true,
       });
     } catch (backendError) {

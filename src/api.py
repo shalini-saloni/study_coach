@@ -59,6 +59,57 @@ def home():
         'version': '1.0.0'
     })
 
+def detect_input_format(data):
+    """Detect if input is in flat or nested format"""
+    if not data:
+        return "none"
+    if 'student_data' in data and 'goal' in data:
+        return "nested"
+    if 'studytime' in data or 'failures' in data:
+        return "flat"
+    return "unknown"
+
+def normalize_input(data):
+    """Normalize flat input format to nested format"""
+    input_format = detect_input_format(data)
+    
+    if input_format == "nested":
+        return data, False
+    
+    if input_format == "flat":
+        logger.info("Detected flat input format, normalizing to nested format")
+        
+        # Extract student data fields
+        student_data = {}
+        goal = {}
+        
+        # Known student data fields
+        student_fields = [
+            'age', 'Medu', 'Fedu', 'traveltime', 'studytime', 'failures',
+            'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health', 'absences',
+            'school', 'sex', 'address', 'famsize', 'Pstatus', 'Mjob', 'Fjob',
+            'reason', 'guardian', 'schoolsup', 'famsup', 'paid', 'activities',
+            'nursery', 'higher', 'internet', 'romantic', 'subject'
+        ]
+        
+        for field in student_fields:
+            if field in data:
+                student_data[field] = data[field]
+        
+        # Handle goal field
+        if 'goal' in data:
+            if isinstance(data['goal'], str):
+                goal = {'priority': data['goal']}
+            else:
+                goal = data['goal']
+        else:
+            goal = {'priority': 'medium'}
+        
+        return {'student_data': student_data, 'goal': goal}, True
+    
+    # Unknown format, return as-is
+    return data, False
+
 def validate_input(data):
     """Validate input data structure and required fields"""
     errors = []
@@ -158,6 +209,11 @@ def predict():
                     'request_id': request_id
                 }
             }), 400
+        
+        # Normalize input format (support both flat and nested)
+        data, was_normalized = normalize_input(data)
+        if was_normalized:
+            logger.info(f"[{request_id}] Input normalized from flat to nested format")
         
         # Input validation
         is_valid, error_msg = validate_input(data)

@@ -33,6 +33,7 @@ interface Resource {
 
 interface AICoaching {
   diagnosis_explanation: string;
+  learning_diagnosis?: string;
   study_plan: {
     overview: string;
     days: StudyDay[];
@@ -221,7 +222,14 @@ export default function Recommendations() {
           setScore(finalGrade);
           setRisk(finalRisk);
           if (pred.diagnosis) setDiagnosis(pred.diagnosis);
-          if (pred.aiCoaching) setAiCoaching(pred.aiCoaching);
+          if (pred.aiCoaching) {
+            // Transform learning_diagnosis to diagnosis_explanation for compatibility
+            const coaching = { ...pred.aiCoaching };
+            if (coaching.learning_diagnosis && !coaching.diagnosis_explanation) {
+              coaching.diagnosis_explanation = coaching.learning_diagnosis;
+            }
+            setAiCoaching(coaching);
+          }
           setRecs(generateRecommendations(sd, finalRisk));
           setLoading(false);
           return;
@@ -240,7 +248,14 @@ export default function Recommendations() {
         finalGrade = result.predictedGrade ?? calcGradeLocally(sd, calcRiskLocally(sd));
         finalRisk = result.riskLevel ?? gradeToRisk(finalGrade);
         if (result.diagnosis) setDiagnosis(result.diagnosis);
-        if (result.aiCoaching) setAiCoaching(result.aiCoaching);
+        if (result.aiCoaching) {
+          // Transform learning_diagnosis to diagnosis_explanation for compatibility
+          const coaching = { ...result.aiCoaching };
+          if (coaching.learning_diagnosis && !coaching.diagnosis_explanation) {
+            coaching.diagnosis_explanation = coaching.learning_diagnosis;
+          }
+          setAiCoaching(coaching);
+        }
       } catch {
         const r = calcRiskLocally(sd);
         finalGrade = calcGradeLocally(sd, r);
