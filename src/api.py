@@ -1,6 +1,7 @@
 """
 Flask API for LearnScope.ai
 This API serves predictions from the trained ML model to the frontend.
+Includes AI Coach integration (Member 2) for LLM-powered coaching.
 """
 
 from flask import Flask, request, jsonify
@@ -9,6 +10,11 @@ import pandas as pd
 import joblib
 import os
 import sys
+
+# Ensure src/ is in the path for local imports
+sys.path.insert(0, os.path.dirname(__file__))
+
+from ai_coach import generate_ai_coaching, is_ai_available
 
 app = Flask(__name__)
 CORS(app)
@@ -83,7 +89,6 @@ def predict():
                 risk_level = determine_risk_level(prediction_score)
         
         try:
-            sys.path.insert(0, os.path.dirname(__file__))
             from diagnosis import get_student_diagnosis
             diagnosis = get_student_diagnosis(data, risk_level)
         except Exception as diag_error:
@@ -95,13 +100,32 @@ def predict():
                 "profile": "No profile assigned"
             }
         
-        return jsonify({
-            'predicted_grade': float(prediction_score) if prediction_score else 12.0,
+        # ── Member 2: AI Coach Integration ──────────────────────────────
+        final_grade = float(prediction_score) if prediction_score else 12.0
+        try:
+            ai_coaching = generate_ai_coaching(
+                student_data=data,
+                diagnosis=diagnosis,
+                risk_level=risk_level,
+                predicted_grade=final_grade
+            )
+        except Exception as ai_error:
+            print(f"AI Coach error: {ai_error}")
+            ai_coaching = None
+        
+        # Build response with AI coaching data
+        response_data = {
+            'predicted_grade': final_grade,
             'risk_level': risk_level,
             'confidence': 0.85,
             'diagnosis': diagnosis,
             'status': 'success'
-        })
+        }
+        
+        if ai_coaching:
+            response_data['ai_coaching'] = ai_coaching
+        
+        return jsonify(response_data)
         
     except Exception as e:
         print(f"Predict endpoint error: {str(e)}")
@@ -176,6 +200,15 @@ def health():
         'status': 'healthy',
         'model_loaded': model is not None,
         'scaler_loaded': scaler is not None
+    })
+
+@app.route('/ai-status', methods=['GET'])
+def ai_status():
+    """Check if AI Coach (LLM) is configured and available"""
+    return jsonify({
+        'ai_available': is_ai_available(),
+        'model': os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+        'provider': 'Groq'
     })
 
 if __name__ == '__main__':
