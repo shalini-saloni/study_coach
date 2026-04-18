@@ -63,9 +63,46 @@ def get_student_diagnosis(student_data, risk_level, predicted_score=None):
     elif student_data.get('higher') == "yes" and s_val >= 2:
         profile = "Goal-Oriented Student"
 
+    # Generate patterns based on combined analysis
+    patterns = []
+    if f_val >= 1 and a_val > 10:
+        patterns.append("Recurring academic failure combined with poor attendance")
+    if s_val <= 1 and g_val >= 4:
+        patterns.append("Low study time with high social engagement")
+    if student_data.get('health', 3) <= 2 and a_val > 5:
+        patterns.append("Health issues impacting school attendance")
+    if s_val >= 3 and f_val == 0:
+        patterns.append("Consistent study habits with no academic failures")
+    
+    # Generate actionable recommendations
+    recommendations = []
+    if f_val >= 1:
+        recommendations.append("Review past failures with teachers to identify root causes")
+    if a_val > 10:
+        recommendations.append("Create a plan to reduce absenteeism and catch up on missed work")
+    if s_val <= 1:
+        recommendations.append("Increase weekly study time to at least 2-5 hours")
+    if student_data.get('health', 3) <= 2:
+        recommendations.append("Prioritize health and wellness to improve academic focus")
+    if g_val >= 4:
+        recommendations.append("Balance social activities with academic responsibilities")
+    if s_val >= 3:
+        recommendations.append("Maintain current study habits and consider advanced challenges")
+    
+    # Ensure at least 3 recommendations
+    if len(recommendations) < 3:
+        default_recs = [
+            "Set specific, measurable academic goals for each subject",
+            "Establish a consistent daily study routine",
+            "Seek help from teachers or peers when concepts are unclear"
+        ]
+        recommendations.extend(default_recs[:(3 - len(recommendations))])
+    
     return {
         "weaknesses": top_weaknesses,
         "strengths": top_strengths,
+        "patterns": patterns,
+        "recommendations": recommendations[:5],
         "reason": reason,
         "profile": profile
     }
