@@ -12,7 +12,7 @@ import sys
 import os
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 
 logging.basicConfig(
@@ -205,7 +205,7 @@ def predict():
                 'status': {
                     'code': 'error',
                     'message': 'No data provided',
-                    'timestamp': datetime.utcnow().isoformat(),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
                     'request_id': request_id
                 }
             }), 400
@@ -223,7 +223,7 @@ def predict():
                 'status': {
                     'code': 'error',
                     'message': f'Validation failed: {error_msg}',
-                    'timestamp': datetime.utcnow().isoformat(),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
                     'request_id': request_id
                 },
                 'error_details': {'issue': error_msg}
@@ -327,7 +327,7 @@ def predict():
             'status': {
                 'code': 'success',
                 'message': 'Prediction completed successfully',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'request_id': request_id
             }
         }
@@ -353,7 +353,7 @@ def predict():
             'status': {
                 'code': 'error',
                 'message': 'Internal server error',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'request_id': request_id
             }
         }), 500
