@@ -11,13 +11,11 @@ import os
 import sys
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for Next.js frontend
+CORS(app)
 
-# Load the trained model (will need to be trained first)
 MODEL_PATH = os.path.join('models', 'final_model.pkl')
 SCALER_PATH = os.path.join('models', 'scaler.pkl')
 
-# Global variables for model and scaler
 model = None
 scaler = None
 
@@ -27,13 +25,13 @@ def load_model():
     try:
         if os.path.exists(MODEL_PATH):
             model = joblib.load(MODEL_PATH)
-            print("✓ Model loaded successfully")
+            print("SUCCESS: Model loaded successfully")
         else:
-            print("⚠ Model not found. Please train the model first.")
+            print("WARNING: Model not found. Please train the model first.")
             
         if os.path.exists(SCALER_PATH):
             scaler = joblib.load(SCALER_PATH)
-            print("✓ Scaler loaded successfully")
+            print("SUCCESS: Scaler loaded successfully")
     except Exception as e:
         print(f"Error loading model: {e}")
 
@@ -49,46 +47,20 @@ def home():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """
-    Predict student performance based on input features
-    
-    Expected JSON input:
-    {
-        "school": "GP",
-        "sex": "F",
-        "age": 17,
-        ...all other features
-    }
-    
-    Returns:
-    {
-        "predicted_grade": 15.2,
-        "risk_level": "Average",
-        "confidence": 0.85,
-        "recommendations": [...]
-    }
-    """
+    """Predict student performance based on input features"""
     try:
-        # Get JSON data from request
         data = request.json
-        
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
-        # Convert to DataFrame
         df = pd.DataFrame([data])
-        
-        # Preprocess the data - match training preprocessing
         X = preprocess_input(df)
         
-        # Make prediction
         prediction_score = None
         if model is None:
-            # Return mock prediction if model not loaded
             prediction_score = calculate_mock_prediction(data)
             risk_level = determine_risk_level(prediction_score)
         else:
-            # Use actual ML model for risk level prediction
             try:
                 if scaler:
                     X_scaled = scaler.transform(X)
@@ -98,12 +70,11 @@ def predict():
                 
                 risk_level = prediction_risk
                 
-                # Estimate a grade score based on risk level
                 if risk_level == "At-risk":
                     prediction_score = 8.0
                 elif risk_level == "Average":
                     prediction_score = 13.0
-                else:  # High-performing
+                else:
                     prediction_score = 17.0
                     
             except Exception as model_error:
@@ -111,43 +82,36 @@ def predict():
                 prediction_score = calculate_mock_prediction(data)
                 risk_level = determine_risk_level(prediction_score)
         
-        # Generate recommendations
         try:
             sys.path.insert(0, os.path.dirname(__file__))
-            from recommendation import generate_recommendations
-            recommendations = generate_recommendations(data, risk_level)
-        except ImportError:
-            # Fallback if recommendation module doesn't exist
-            recommendations = [
-                "Focus on your studies regularly",
-                "Practice consistently to improve performance",
-                "Seek help from teachers or tutors when needed"
-            ]
+            from diagnosis import get_student_diagnosis
+            diagnosis = get_student_diagnosis(data, risk_level)
+        except Exception as diag_error:
+            print(f"Diagnosis error: {diag_error}")
+            diagnosis = {
+                "weaknesses": [],
+                "strengths": [],
+                "reason": f"Student is in the {risk_level} category.",
+                "profile": "No profile assigned"
+            }
         
-        # Return prediction
         return jsonify({
             'predicted_grade': float(prediction_score) if prediction_score else 12.0,
             'risk_level': risk_level,
             'confidence': 0.85,
-            'recommendations': recommendations,
+            'diagnosis': diagnosis,
             'status': 'success'
         })
         
     except Exception as e:
         print(f"Predict endpoint error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'error': str(e),
             'status': 'error'
         }), 500
 
 def preprocess_input(df):
-    """
-    Preprocess input data to match training format exactly.
-    Ensures all 40 dummy columns are present in the correct order.
-    """
-    # 1. Define all feature columns the model expects (in order)
+    """Preprocess input data to match training format exactly."""
     expected_features = [
         'age', 'Medu', 'Fedu', 'traveltime', 'studytime', 'failures', 'famrel', 
         'freetime', 'goout', 'Dalc', 'Walc', 'health', 'absences', 
@@ -160,7 +124,6 @@ def preprocess_input(df):
         'internet_yes', 'romantic_yes', 'subject_portuguese'
     ]
     
-    # 2. Categorical columns for get_dummies and their defaults
     categorical_defaults = {
         'school': 'GP', 'sex': 'F', 'address': 'U', 'famsize': 'GT3', 'Pstatus': 'T',
         'Mjob': 'other', 'Fjob': 'other', 'reason': 'course', 'guardian': 'mother',
@@ -169,65 +132,41 @@ def preprocess_input(df):
         'subject': 'math'
     }
     
-    # Fill missing categorical columns
     for col, default in categorical_defaults.items():
         if col not in df.columns:
             df[col] = default
             
-    # 3. Create dummies
     df_encoded = pd.get_dummies(df, columns=list(categorical_defaults.keys()))
-    
-    # 4. Fill missing columns with 0 and ensure order
     final_df = pd.DataFrame(index=df.index)
     
-    # Add numeric columns
     numeric_defaults = {
         'age': 17, 'Medu': 2, 'Fedu': 2, 'traveltime': 1, 'studytime': 2, 'failures': 0, 
         'famrel': 4, 'freetime': 3, 'goout': 3, 'Dalc': 1, 'Walc': 1, 'health': 3, 'absences': 0
     }
     
     for col, default in numeric_defaults.items():
-        if col in df.columns:
-            final_df[col] = df[col]
-        else:
-            final_df[col] = default
+        final_df[col] = df[col] if col in df.columns else default
             
-    # Add/Map dummy columns
-    # We manually map the "dropped first" logic or check presence
     for feat in expected_features:
         if feat in numeric_defaults:
             continue
-        if feat in df_encoded.columns:
-            final_df[feat] = df_encoded[feat]
-        else:
-            final_df[feat] = 0
+        final_df[feat] = df_encoded[feat] if feat in df_encoded.columns else 0
             
-    # Ensure exact order
     return final_df[expected_features]
 
 def determine_risk_level(score):
     """Determine risk level based on predicted score"""
-    if score < 10:
-        return "At-risk"
-    elif score < 15:
-        return "Average"
-    else:
-        return "High-performing"
+    if score < 10: return "At-risk"
+    if score < 15: return "Average"
+    return "High-performing"
 
 def calculate_mock_prediction(data):
     """Calculate mock prediction when model is not available"""
-    score = 12.0
-    
-    # Adjust based on key factors
-    score += data.get('studytime', 2) * 0.5
+    score = 12.0 + (data.get('studytime', 2) * 0.5)
     score -= data.get('failures', 0) * 2
     score -= min(data.get('absences', 0) / 10, 3)
-    
-    if data.get('higher') == 'yes':
-        score += 1
-    if data.get('famsup') == 'yes':
-        score += 0.5
-    
+    if data.get('higher') == 'yes': score += 1
+    if data.get('famsup') == 'yes': score += 0.5
     return max(0, min(20, score))
 
 @app.route('/health', methods=['GET'])
@@ -240,13 +179,8 @@ def health():
     })
 
 if __name__ == '__main__':
-    print("🚀 Starting LearnScope.ai API...")
     load_model()
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('FLASK_ENV') == 'development'
-    print(f"📡 Running on http://0.0.0.0:{port}")
-    print("📝 API endpoints:")
-    print("   GET  /          - API info")
-    print("   POST /predict   - Make predictions")
-    print("   GET  /health    - Health check")
+    print(f"Running on http://0.0.0.0:{port}")
     app.run(debug=debug, host='0.0.0.0', port=port)
