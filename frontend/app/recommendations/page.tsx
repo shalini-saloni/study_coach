@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// ── Type definitions ──────────────────────────────────────────────────────────
+
 interface StudentData {
   school: string; sex: string; age: number; address: string;
   famsize: string; Pstatus: string; Medu: number; Fedu: number;
@@ -13,6 +15,38 @@ interface StudentData {
   nursery: string; higher: string; internet: string; romantic: string;
   famrel: number; freetime: number; goout: number; Dalc: number;
   Walc: number; health: number; absences: number; subject: string;
+}
+
+interface StudyDay {
+  day: string;
+  focus: string;
+  tasks: string[];
+  duration: string;
+}
+
+interface Resource {
+  name: string;
+  type: string;
+  url: string;
+  why: string;
+}
+
+interface AICoaching {
+  diagnosis_explanation: string;
+  study_plan: {
+    overview: string;
+    days: StudyDay[];
+  };
+  resources: Resource[];
+  next_steps: string[];
+  ai_generated: boolean;
+}
+
+interface Diagnosis {
+  weaknesses: string[];
+  strengths: string[];
+  reason: string;
+  profile: string;
 }
 
 type Status = "good" | "average" | "needs-improvement";
@@ -45,16 +79,21 @@ const I = {
   ChevronDown: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>,
   ChevronLeft: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>,
   Printer: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>,
+  Brain: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
+  Rocket: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+  Link: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>,
+  Play: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  App: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
+  Wand: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>,
+  CheckCircle: () => <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
 };
 
 type IconKey = keyof typeof I;
-
 type RecItem = { text: string; icon: IconKey };
 
-// ── Recommendation generation ─────────────────────────────────────────────────
+// ── Recommendation generation (fallback) ──────────────────────────────────────
 function generateRecommendations(data: StudentData, risk: string): RecItem[] {
   const recs: RecItem[] = [];
-
   if (risk === "At-risk") {
     recs.push({ icon: "Calendar", text: "Create a structured daily study schedule — divide your time by subject with fixed revision slots each evening." });
     recs.push({ icon: "Clipboard", text: "Practice past exam papers weekly to identify recurring weak areas and track your progress over time." });
@@ -68,79 +107,23 @@ function generateRecommendations(data: StudentData, risk: string): RecItem[] {
     recs.push({ icon: "Lightning", text: "Tackle advanced and cross-disciplinary problems to deepen conceptual understanding beyond the syllabus." });
     recs.push({ icon: "Users", text: "Teaching peers is one of the most effective ways to consolidate your own knowledge — consider informal tutoring." });
   }
-
-  if (data.studytime <= 1)
-    recs.push({ icon: "Clock", text: "Your study time is very low (under 2 hrs/week). Aim for at least 1–2 dedicated hours daily to see real improvement." });
-  else if (data.studytime === 2)
-    recs.push({ icon: "Clock", text: "You study 2–5 hrs/week — gradually increase to 1.5 hrs daily, especially in the weeks before exams." });
-
-  if (data.absences > 15)
-    recs.push({ icon: "Warning", text: `High absenteeism (${data.absences} days) is significantly hurting your learning. Prioritize attending every class you can.` });
-  else if (data.absences > 5)
-    recs.push({ icon: "School", text: "Try to minimize absences — each missed class creates gaps that are very hard to fill on your own." });
-
-  if (data.failures > 0)
-    recs.push({ icon: "BookOpen", text: `You've had ${data.failures} past failure(s) — revisit fundamentals in those subjects before moving to advanced topics.` });
-
-  if (data.internet === "yes")
-    recs.push({ icon: "Globe", text: "Leverage free online resources: Khan Academy, YouTube (3Blue1Brown for math, CrashCourse), and Coursera for deeper learning." });
-  else
-    recs.push({ icon: "BookOpen", text: "Without internet at home, make the most of your school library, textbooks, and offline practice problem sets." });
-
-  if (data.famsup === "no" && data.schoolsup === "no")
-    recs.push({ icon: "Home", text: "You're navigating studies without extra support — consider asking a teacher for guidance or connecting with classmates." });
-
-  if (data.Dalc >= 3 || data.Walc >= 4)
-    recs.push({ icon: "Ban", text: "High alcohol consumption is linked to lower academic performance. Reducing it can improve your focus and memory significantly." });
-
-  if (data.goout >= 4)
-    recs.push({ icon: "Moon", text: "Socializing is great, but balance is key. Try keeping weeknight outings short to protect your study routine." });
-
-  if (data.health <= 2)
-    recs.push({ icon: "Heart", text: "Your health score is low — prioritize 7–8 hours of sleep, regular exercise, and nutritious meals for better brain performance." });
-
-  if (data.romantic === "yes" && risk === "At-risk")
-    recs.push({ icon: "Target", text: "While relationships are important, ensure your studies remain a priority — try setting shared academic goals with your partner." });
-
-  if (data.higher === "yes")
-    recs.push({ icon: "GradCap", text: "Since you're aiming for higher education, research entrance requirements early and align your study goals accordingly." });
-
-  if (data.subject === "math")
-    recs.push({ icon: "Calculator", text: "For mathematics: don't just read solutions — practice solving problems from scratch daily, even if just 5 problems per session." });
-  else
-    recs.push({ icon: "Pencil", text: "For Portuguese: focus on reading comprehension, essay structure, and vocabulary by writing short paragraphs daily." });
-
+  if (data.studytime <= 1) recs.push({ icon: "Clock", text: "Your study time is very low (under 2 hrs/week). Aim for at least 1–2 dedicated hours daily to see real improvement." });
+  if (data.absences > 15) recs.push({ icon: "Warning", text: `High absenteeism (${data.absences} days) is significantly hurting your learning. Prioritize attending every class.` });
+  if (data.failures > 0) recs.push({ icon: "BookOpen", text: `You've had ${data.failures} past failure(s) — revisit fundamentals in those subjects before moving to advanced topics.` });
+  if (data.internet === "yes") recs.push({ icon: "Globe", text: "Leverage free online resources: Khan Academy, YouTube (3Blue1Brown for math, CrashCourse), and Coursera." });
+  if (data.health <= 2) recs.push({ icon: "Heart", text: "Your health score is low — prioritize 7–8 hours of sleep, regular exercise, and nutritious meals." });
+  if (data.higher === "yes") recs.push({ icon: "GradCap", text: "Since you're aiming for higher education, research entrance requirements early and align your study goals." });
+  if (data.subject === "math") recs.push({ icon: "Calculator", text: "For mathematics: practice solving problems from scratch daily, even if just 5 problems per session." });
+  else recs.push({ icon: "Pencil", text: "For Portuguese: focus on reading comprehension, essay structure, and vocabulary by writing short paragraphs daily." });
   return recs;
 }
 
-// ── Score thresholds ──────────────────────────────────────────────────────────
-// ≥ 15 → High-performing | 10–14 → Average | < 10 → At-risk
+// ── Utilities ─────────────────────────────────────────────────────────────────
 function gradeToRisk(score: number): string {
   if (score >= 15) return "High-performing";
   if (score >= 10) return "Average";
   return "At-risk";
 }
-
-const mapRecs = (texts: string[]): RecItem[] => {
-  return texts.map(text => {
-    let icon: IconKey = "Sparkles";
-    const lower = text.toLowerCase();
-    if (lower.includes("study time") || lower.includes("hrs/week")) icon = "Clock";
-    else if (lower.includes("schedule") || lower.includes("calendar")) icon = "Calendar";
-    else if (lower.includes("exam") || lower.includes("practice")) icon = "Clipboard";
-    else if (lower.includes("group") || lower.includes("peer") || lower.includes("tutor")) icon = "Users";
-    else if (lower.includes("momentum") || lower.includes("percentile") || lower.includes("stretch")) icon = "Star";
-    else if (lower.includes("absences") || lower.includes("class")) icon = "School";
-    else if (lower.includes("fail") || lower.includes("fundamentals")) icon = "Warning";
-    else if (lower.includes("internet") || lower.includes("online")) icon = "Globe";
-    else if (lower.includes("health") || lower.includes("sleep")) icon = "Heart";
-    else if (lower.includes("alcohol") || lower.includes("consumption")) icon = "Ban";
-    else if (lower.includes("socializing") || lower.includes("outing")) icon = "Moon";
-    else if (lower.includes("math")) icon = "Calculator";
-    else if (lower.includes("portuguese") || lower.includes("vocabulary")) icon = "Pencil";
-    return { text, icon };
-  });
-};
 
 function calcRiskLocally(d: StudentData): string {
   let s = 0;
@@ -171,6 +154,38 @@ function calcGradeLocally(d: StudentData, risk: string): number {
   return Math.max(0, Math.min(20, base));
 }
 
+// ── Day color scheme for study plan ──────────────────────────────────────────
+const dayColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  Monday:    { bg: "bg-blue-50",    border: "border-blue-200",    text: "text-blue-700",    dot: "bg-blue-500" },
+  Tuesday:   { bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700",  dot: "bg-purple-500" },
+  Wednesday: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
+  Thursday:  { bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   dot: "bg-amber-500" },
+  Friday:    { bg: "bg-rose-50",    border: "border-rose-200",    text: "text-rose-700",    dot: "bg-rose-500" },
+  Saturday:  { bg: "bg-cyan-50",    border: "border-cyan-200",    text: "text-cyan-700",    dot: "bg-cyan-500" },
+  Sunday:    { bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600",   dot: "bg-slate-400" },
+};
+
+// ── Resource type icon ──────────────────────────────────────────────────────
+function resourceIcon(type: string): IconKey {
+  switch (type) {
+    case "website": return "Globe";
+    case "youtube": return "Play";
+    case "app": return "App";
+    case "technique": return "Bulb";
+    default: return "Link";
+  }
+}
+
+function resourceTypeBadge(type: string): { bg: string; text: string; label: string } {
+  switch (type) {
+    case "website":   return { bg: "bg-blue-100",    text: "text-blue-700",    label: "Website" };
+    case "youtube":   return { bg: "bg-red-100",     text: "text-red-700",     label: "YouTube" };
+    case "app":       return { bg: "bg-emerald-100", text: "text-emerald-700", label: "App" };
+    case "technique": return { bg: "bg-amber-100",   text: "text-amber-700",   label: "Technique" };
+    default:          return { bg: "bg-slate-100",   text: "text-slate-700",   label: "Resource" };
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Recommendations() {
   const router = useRouter();
@@ -178,8 +193,13 @@ export default function Recommendations() {
   const [risk, setRisk] = useState("");
   const [score, setScore] = useState(0);
   const [recs, setRecs] = useState<RecItem[]>([]);
+  const [aiCoaching, setAiCoaching] = useState<AICoaching | null>(null);
+  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState<number | null>(null);
+  const [openDay, setOpenDay] = useState<number | null>(0); // First day open by default
+  const [openRec, setOpenRec] = useState<number | null>(null);
+  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+  const [activeTab, setActiveTab] = useState<"plan" | "resources">("plan");
 
   useEffect(() => {
     (async () => {
@@ -197,41 +217,51 @@ export default function Recommendations() {
         try {
           const pred = JSON.parse(stored);
           finalGrade = pred.predictedGrade ?? calcGradeLocally(sd, calcRiskLocally(sd));
-          finalRisk = gradeToRisk(finalGrade);
-          setScore(finalGrade); setRisk(finalRisk);
-          if (pred.recommendations && Array.isArray(pred.recommendations)) {
-            setRecs(mapRecs(pred.recommendations));
-          } else {
-            setRecs(generateRecommendations(sd, finalRisk));
-          }
-          setLoading(false); return;
-        } catch { }
+          finalRisk = pred.riskLevel ?? gradeToRisk(finalGrade);
+          setScore(finalGrade);
+          setRisk(finalRisk);
+          if (pred.diagnosis) setDiagnosis(pred.diagnosis);
+          if (pred.aiCoaching) setAiCoaching(pred.aiCoaching);
+          setRecs(generateRecommendations(sd, finalRisk));
+          setLoading(false);
+          return;
+        } catch { /* fall through */ }
       }
 
       // Try API
-      let apiRecs: string[] | null = null;
       try {
-        const res = await fetch("/api/predict", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sd) });
+        const res = await fetch("/api/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sd),
+        });
         if (!res.ok) throw new Error();
         const result = await res.json();
         finalGrade = result.predictedGrade ?? calcGradeLocally(sd, calcRiskLocally(sd));
-        apiRecs = result.recommendations;
+        finalRisk = result.riskLevel ?? gradeToRisk(finalGrade);
+        if (result.diagnosis) setDiagnosis(result.diagnosis);
+        if (result.aiCoaching) setAiCoaching(result.aiCoaching);
       } catch {
         const r = calcRiskLocally(sd);
         finalGrade = calcGradeLocally(sd, r);
+        finalRisk = gradeToRisk(finalGrade);
       }
 
-      finalRisk = gradeToRisk(finalGrade);
-      setScore(finalGrade); setRisk(finalRisk);
-
-      if (apiRecs && Array.isArray(apiRecs)) {
-        setRecs(mapRecs(apiRecs));
-      } else {
-        setRecs(generateRecommendations(sd, finalRisk));
-      }
+      setScore(finalGrade);
+      setRisk(finalRisk);
+      setRecs(generateRecommendations(sd, finalRisk));
       setLoading(false);
     })();
   }, [router]);
+
+  const toggleStep = (idx: number) => {
+    setCheckedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
 
   if (loading || !data) {
     return (
@@ -241,7 +271,8 @@ export default function Recommendations() {
             <div className="absolute inset-0 rounded-full border-4 border-violet-200" />
             <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-violet-600 animate-spin" />
           </div>
-          <p className="text-slate-500 font-medium">Analyzing your profile…</p>
+          <p className="text-slate-500 font-medium">Analyzing your profile with AI...</p>
+          <p className="text-slate-400 text-sm">Generating your personalized study coaching</p>
         </div>
       </div>
     );
@@ -249,10 +280,10 @@ export default function Recommendations() {
 
   // ── Derived display values ───────────────────────────────────────────────
   const riskCfg = {
-    "At-risk": { textColor: "text-red-600", bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500", subtitle: "Needs focused improvement" },
-    "Average": { textColor: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-500", subtitle: "Room to grow significantly" },
-    "High-performing": { textColor: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", subtitle: "Excellent — keep it up!" },
-  }[risk] ?? { textColor: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-500", subtitle: "" };
+    "At-risk": { textColor: "text-red-600", bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500", subtitle: "Needs focused improvement", gradient: "from-red-500 to-rose-500" },
+    "Average": { textColor: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-500", subtitle: "Room to grow significantly", gradient: "from-amber-500 to-orange-500" },
+    "High-performing": { textColor: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", subtitle: "Excellent — keep it up!", gradient: "from-emerald-500 to-teal-500" },
+  }[risk] ?? { textColor: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-500", subtitle: "", gradient: "from-amber-500 to-orange-500" };
 
   const gaugeColor = score >= 15 ? "#10b981" : score >= 10 ? "#f59e0b" : "#ef4444";
   const circ = 2 * Math.PI * 52;
@@ -266,37 +297,15 @@ export default function Recommendations() {
 
   type Factor = { label: string; value: number; max: number; status: Status; display: string; Icon: IconKey };
   const factors: Factor[] = [
-    {
-      label: "Study Time", value: data.studytime, max: 4,
-      status: data.studytime >= 3 ? "good" : data.studytime >= 2 ? "average" : "needs-improvement",
-      display: ["< 2 hrs", "2–5 hrs", "5–10 hrs", "> 10 hrs"][data.studytime - 1] ?? `${data.studytime}`, Icon: "BookOpen"
-    },
-    {
-      label: "Past Failures", value: 4 - data.failures, max: 4,
-      status: data.failures === 0 ? "good" : data.failures === 1 ? "average" : "needs-improvement",
-      display: `${data.failures} failure${data.failures !== 1 ? "s" : ""}`, Icon: "Warning"
-    },
-    {
-      label: "Absences", value: Math.max(0, 30 - Math.min(30, data.absences)), max: 30,
-      status: data.absences < 5 ? "good" : data.absences < 15 ? "average" : "needs-improvement",
-      display: `${data.absences} days`, Icon: "School"
-    },
-    {
-      label: "Family Support", value: data.famsup === "yes" ? 5 : 1, max: 5,
-      status: data.famsup === "yes" ? "good" : "needs-improvement",
-      display: data.famsup === "yes" ? "Yes" : "No", Icon: "Home"
-    },
-    {
-      label: "Higher Ed Goal", value: data.higher === "yes" ? 5 : 1, max: 5,
-      status: data.higher === "yes" ? "good" : "needs-improvement",
-      display: data.higher === "yes" ? "Yes" : "No", Icon: "GradCap"
-    },
-    {
-      label: "Health", value: data.health, max: 5,
-      status: data.health >= 4 ? "good" : data.health >= 3 ? "average" : "needs-improvement",
-      display: `${data.health}/5`, Icon: "Heart"
-    },
+    { label: "Study Time", value: data.studytime, max: 4, status: data.studytime >= 3 ? "good" : data.studytime >= 2 ? "average" : "needs-improvement", display: ["< 2 hrs", "2–5 hrs", "5–10 hrs", "> 10 hrs"][data.studytime - 1] ?? `${data.studytime}`, Icon: "BookOpen" },
+    { label: "Past Failures", value: 4 - data.failures, max: 4, status: data.failures === 0 ? "good" : data.failures === 1 ? "average" : "needs-improvement", display: `${data.failures} failure${data.failures !== 1 ? "s" : ""}`, Icon: "Warning" },
+    { label: "Absences", value: Math.max(0, 30 - Math.min(30, data.absences)), max: 30, status: data.absences < 5 ? "good" : data.absences < 15 ? "average" : "needs-improvement", display: `${data.absences} days`, Icon: "School" },
+    { label: "Family Support", value: data.famsup === "yes" ? 5 : 1, max: 5, status: data.famsup === "yes" ? "good" : "needs-improvement", display: data.famsup === "yes" ? "Yes" : "No", Icon: "Home" },
+    { label: "Higher Ed Goal", value: data.higher === "yes" ? 5 : 1, max: 5, status: data.higher === "yes" ? "good" : "needs-improvement", display: data.higher === "yes" ? "Yes" : "No", Icon: "GradCap" },
+    { label: "Health", value: data.health, max: 5, status: data.health >= 4 ? "good" : data.health >= 3 ? "average" : "needs-improvement", display: `${data.health}/5`, Icon: "Heart" },
   ];
+
+  const hasAI = aiCoaching !== null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50 to-fuchsia-50 py-10 px-4">
@@ -310,12 +319,19 @@ export default function Recommendations() {
             </span>
           </Link>
           <h2 className="mt-3 text-xl font-bold text-slate-700">Your Personalized Study Plan</h2>
+          {hasAI && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-violet-100 to-fuchsia-100 border border-violet-200">
+              <I.Sparkles />
+              <span className="text-xs font-bold text-violet-700">
+                {aiCoaching.ai_generated ? "Powered by AI Coach" : "AI-Enhanced Coaching"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Score + Risk */}
         <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
-
             {/* Gauge */}
             <div className="flex flex-col items-center gap-4">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Predicted Final Grade</p>
@@ -332,7 +348,6 @@ export default function Recommendations() {
                   <span className="text-xs font-semibold text-slate-400">out of 20</span>
                 </div>
               </div>
-              {/* Legend */}
               <div className="flex gap-3 text-xs font-semibold text-slate-500">
                 <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />Below 10</span>
                 <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />10 – 14</span>
@@ -347,10 +362,56 @@ export default function Recommendations() {
                 <div className={`w-3 h-3 rounded-full ${riskCfg.dot} animate-pulse`} />
                 <span className={`text-2xl font-black ${riskCfg.textColor}`}>{risk}</span>
                 <p className="text-xs text-slate-500 text-center">{riskCfg.subtitle}</p>
+                {diagnosis?.profile && diagnosis.profile !== "Standard Profile" && (
+                  <span className="mt-1 text-xs font-bold px-3 py-1 rounded-full bg-violet-100 text-violet-700">
+                    {diagnosis.profile}
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </div>
+
+        {/* ━━━ AI DIAGNOSIS SECTION ━━━ */}
+        {hasAI && aiCoaching.diagnosis_explanation && (
+          <div className="relative bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+            {/* Gradient accent bar */}
+            <div className={`h-1.5 bg-gradient-to-r ${riskCfg.gradient}`} />
+            <div className="p-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
+                  <I.Brain />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800">AI Diagnosis</h3>
+                  <p className="text-xs text-slate-400">Personalized analysis of your academic profile</p>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-slate-50 to-violet-50/50 rounded-2xl p-6 border border-slate-100">
+                <p className="text-slate-700 leading-relaxed text-[15px]">
+                  {aiCoaching.diagnosis_explanation}
+                </p>
+              </div>
+              {/* Strengths & Weaknesses pills */}
+              {diagnosis && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {diagnosis.strengths?.map((s, i) => (
+                    <span key={`s-${i}`} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-700">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      {s}
+                    </span>
+                  ))}
+                  {diagnosis.weaknesses?.map((w, i) => (
+                    <span key={`w-${i}`} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-xs font-semibold text-red-700">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {w}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Factor Analysis */}
         <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-8">
@@ -386,25 +447,211 @@ export default function Recommendations() {
           </div>
         </div>
 
-        {/* Recommendations */}
+        {/* ━━━ AI STUDY PLAN & RESOURCES (Tabbed) ━━━ */}
+        {hasAI && (
+          <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+            {/* Tab headers */}
+            <div className="flex border-b border-slate-100">
+              <button
+                onClick={() => setActiveTab("plan")}
+                className={`flex-1 py-4 px-6 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  activeTab === "plan"
+                    ? "text-violet-700 border-b-2 border-violet-500 bg-violet-50/50"
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <I.Calendar /> Weekly Study Plan
+              </button>
+              <button
+                onClick={() => setActiveTab("resources")}
+                className={`flex-1 py-4 px-6 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  activeTab === "resources"
+                    ? "text-violet-700 border-b-2 border-violet-500 bg-violet-50/50"
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <I.Globe /> Resources
+              </button>
+            </div>
+
+            <div className="p-8">
+              {/* ── Study Plan Tab ─────────────────────────────────────────── */}
+              {activeTab === "plan" && aiCoaching.study_plan && (
+                <div>
+                  <p className="text-sm text-slate-500 mb-6 italic">{aiCoaching.study_plan.overview}</p>
+                  <div className="space-y-3">
+                    {aiCoaching.study_plan.days?.map((day, idx) => {
+                      const isOpen = openDay === idx;
+                      const dc = dayColors[day.day] ?? dayColors.Monday;
+                      return (
+                        <div key={idx} className={`rounded-2xl border-2 transition-all duration-200 overflow-hidden ${
+                          isOpen ? `${dc.border} ${dc.bg}` : "border-slate-100 hover:border-slate-200"
+                        }`}>
+                          <button
+                            onClick={() => setOpenDay(isOpen ? null : idx)}
+                            className="w-full text-left px-5 py-4 flex items-center gap-3"
+                          >
+                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dc.dot}`} />
+                            <div className="flex-1">
+                              <span className={`text-sm font-bold ${isOpen ? dc.text : "text-slate-700"}`}>
+                                {day.day}
+                              </span>
+                              <span className="text-xs text-slate-400 ml-2">— {day.focus}</span>
+                            </div>
+                            <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                              {day.duration}
+                            </span>
+                            <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+                              <I.ChevronDown />
+                            </span>
+                          </button>
+                          {isOpen && (
+                            <div className="px-5 pb-4">
+                              <div className="pl-5 border-l-2 border-slate-200 space-y-2">
+                                {day.tasks?.map((task, tIdx) => (
+                                  <div key={tIdx} className="flex items-start gap-2 text-sm text-slate-600">
+                                    <span className="text-violet-400 mt-0.5 flex-shrink-0">
+                                      <I.CheckCircle />
+                                    </span>
+                                    <span>{task}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Resources Tab ──────────────────────────────────────────── */}
+              {activeTab === "resources" && aiCoaching.resources && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {aiCoaching.resources.map((res, idx) => {
+                    const badge = resourceTypeBadge(res.type);
+                    const RIcon = I[resourceIcon(res.type)];
+                    const isExternal = res.url && res.url !== "#" && res.url.startsWith("http");
+                    return (
+                      <div key={idx} className="group rounded-2xl border-2 border-slate-100 hover:border-violet-200 hover:shadow-md transition-all p-5 flex flex-col">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-500 group-hover:text-white transition-all">
+                            <RIcon />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold text-slate-800 truncate">{res.name}</h4>
+                            <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mt-1 ${badge.bg} ${badge.text}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed flex-1">{res.why}</p>
+                        {isExternal && (
+                          <a href={res.url} target="_blank" rel="noopener noreferrer"
+                            className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-800 transition-colors"
+                          >
+                            <I.Link /> Open Resource
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ━━━ AI NEXT STEPS ━━━ */}
+        {hasAI && aiCoaching.next_steps && aiCoaching.next_steps.length > 0 && (
+          <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+            <div className="h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
+            <div className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
+                  <I.Rocket />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800">Next Steps</h3>
+                  <p className="text-xs text-slate-400">Your immediate action items — check them off as you go</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {aiCoaching.next_steps.map((step, idx) => {
+                  const checked = checkedSteps.has(idx);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => toggleStep(idx)}
+                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 flex items-start gap-3 ${
+                        checked
+                          ? "border-emerald-200 bg-emerald-50"
+                          : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/30"
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                        checked
+                          ? "border-emerald-500 bg-emerald-500"
+                          : "border-slate-300"
+                      }`}>
+                        {checked && (
+                          <svg fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3} className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-xs font-bold text-violet-500 uppercase tracking-wider">Step {idx + 1}</span>
+                        <p className={`text-sm font-medium mt-0.5 leading-relaxed transition-all ${
+                          checked ? "text-slate-400 line-through" : "text-slate-700"
+                        }`}>
+                          {step}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Progress */}
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-400">Progress</span>
+                  <span className="text-xs font-bold text-violet-600">{checkedSteps.size}/{aiCoaching.next_steps.length} completed</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
+                    style={{ width: `${(checkedSteps.size / aiCoaching.next_steps.length) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fallback Recommendations (always shown) */}
         <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
               <I.Sparkles />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-800">Personalized Recommendations</h3>
+              <h3 className="text-lg font-black text-slate-800">
+                {hasAI ? "Additional Tips" : "Personalized Recommendations"}
+              </h3>
               <p className="text-xs text-slate-400">{recs.length} tailored suggestions for you</p>
             </div>
           </div>
 
           <div className="space-y-2.5">
             {recs.map((rec, idx) => {
-              const isOpen = open === idx;
+              const isOpen = openRec === idx;
               const Icon = I[rec.icon];
               return (
                 <button key={idx} type="button"
-                  onClick={() => setOpen(isOpen ? null : idx)}
+                  onClick={() => setOpenRec(isOpen ? null : idx)}
                   className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 ${isOpen ? "border-violet-300 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"
                     }`}
                 >
