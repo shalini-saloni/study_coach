@@ -8,10 +8,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pandas as pd
 import joblib
-import os
 import sys
-
-# Ensure src/ is in the path for local imports
+import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from ai_coach import generate_ai_coaching, is_ai_available
@@ -100,20 +98,21 @@ def predict():
                 "profile": "No profile assigned"
             }
         
-        # ── Member 2: AI Coach Integration ──────────────────────────────
         final_grade = float(prediction_score) if prediction_score else 12.0
+        goal = data.get('goal', 'Improve overall academic performance')
+        
         try:
             ai_coaching = generate_ai_coaching(
                 student_data=data,
                 diagnosis=diagnosis,
                 risk_level=risk_level,
-                predicted_grade=final_grade
+                predicted_grade=final_grade,
+                goal=goal
             )
         except Exception as ai_error:
             print(f"AI Coach error: {ai_error}")
             ai_coaching = None
         
-        # Build response with AI coaching data
         response_data = {
             'predicted_grade': final_grade,
             'risk_level': risk_level,

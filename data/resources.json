@@ -1,0 +1,26 @@
+{
+  "categories": {
+    "math": [
+      {"name": "Khan Academy — Math", "url": "https://www.khanacademy.org/math", "why": "Comprehensive math tutorials for all grade levels.", "priority": 10},
+      {"name": "Desmos Graphing", "url": "https://www.desmos.com/calculator", "why": "Visual tool for exploring functions.", "priority": 8},
+      {"name": "Photomath Guide", "url": "https://photomath.com", "why": "Step-by-step problem solver for difficult homework.", "priority": 5}
+    ],
+    "portuguese": [
+      {"name": "Ciberduvidas", "url": "https://ciberduvidas.iscte-iul.pt", "why": "Advanced grammar and linguistic help.", "priority": 10},
+      {"name": "Língua Portuguesa Online", "url": "https://www.infopedia.pt/", "why": "Portuguese dictionary and encyclopedia.", "priority": 8}
+    ],
+    "absences": [
+      {"name": "Attendance Recovery Plan", "url": "https://www.attendanceworks.org/resources/", "why": "Strategies to catch up on missed class time.", "priority": 15}
+    ],
+    "studytime": [
+      {"name": "Pomodoro Focus Timer", "url": "https://pomofocus.io", "why": "Technique for maintaining high focus during short sessions.", "priority": 15}
+    ],
+    "failures": [
+      {"name": "Growth Mindset Principles", "url": "https://www.mindsetworks.com/science/", "why": "How to handle setbacks and improve following failures.", "priority": 20}
+    ],
+    "advanced": [
+      {"name": "WolframAlpha", "url": "https://www.wolframalpha.com", "why": "Computational engine for complex data and theory.", "priority": 5},
+      {"name": "Coursera Learning", "url": "https://www.coursera.org", "why": "Advanced college-prep courses for top students.", "priority": 5}
+    ]
+  }
+}

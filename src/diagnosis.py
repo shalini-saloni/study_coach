@@ -4,11 +4,7 @@ This module provides rule-based diagnosis of student performance factors.
 """
 
 def get_student_diagnosis(student_data, risk_level, predicted_score=None):
-    """
-    Expert-level academic diagnosis for LearnScope.ai.
-    Analyzes student data to provide a detailed, prioritized academic diagnosis.
-    """
-    # Priority: Failures (10) > Absences (8) > StudyTime (5) > Health/GoOut (3)
+    """ Expert-level academic diagnosis analyzed from student performance metrics. """
     weakness_map = [
         ("failures", student_data.get('failures', 0) >= 1, "past academic failures", 10),
         ("absences", student_data.get('absences', 0) > 10, "high absenteeism", 8),
@@ -38,13 +34,11 @@ def get_student_diagnosis(student_data, risk_level, predicted_score=None):
             reason = f"The student is currently at risk due to {primary}{secondary}, which significantly hinders learning stability."
         else:
             reason = "Overall performance metrics suggest a downward trend requiring immediate academic monitoring."
-
     elif risk_level == "Average":
         weakness = top_weaknesses[0] if top_weaknesses else "slight inconsistency in habits"
         strength = top_strengths[0] if top_strengths else "general subject competence"
         reason = f"Academic growth is being slowed by {weakness}, yet the student's {strength} provides a solid base for recovery."
-
-    else:  # High-performing
+    else:
         if top_strengths:
             lead = top_strengths[0]
             support = f" supported by {top_strengths[1]}" if len(top_strengths) > 1 else ""
