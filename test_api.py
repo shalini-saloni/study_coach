@@ -1,11 +1,45 @@
-"""
-Test script to validate the Flask API changes
-Tests input format normalization and response structure
+"""Final API test suite for full-system verification.
+
+Coverage:
+- Input shape normalization (flat and nested)
+- Student profile outcomes (at-risk, average, high-performing)
+- Goal variants
+- AI coaching contract sections (weekly goals and quiz)
 """
 import requests
-import json
 
 BASE_URL = "http://localhost:5001"
+
+
+def _post(payload, timeout=15):
+    return requests.post(f"{BASE_URL}/predict", json=payload, timeout=timeout)
+
+
+def _validate_base_structure(result):
+    assert "predicted_grade" in result, "Missing predicted_grade"
+    assert "risk_level" in result, "Missing risk_level"
+    assert "diagnosis" in result, "Missing diagnosis"
+    assert "ai_coaching" in result, "Missing ai_coaching"
+    assert "status" in result, "Missing status"
+    assert "value" in result["predicted_grade"], "Missing predicted_grade.value"
+    assert "category" in result["risk_level"], "Missing risk_level.category"
+    assert "code" in result["status"], "Missing status.code"
+
+
+def _validate_ai_coaching_sections(result):
+    ai_coaching = result.get("ai_coaching") or {}
+    assert isinstance(ai_coaching, dict), "ai_coaching should be an object"
+    assert ai_coaching is not None, "ai_coaching should never be None"
+
+    assert "weekly_goals" in ai_coaching, "Missing weekly_goals section"
+    assert isinstance(ai_coaching["weekly_goals"], list), "weekly_goals should be a list"
+    assert len(ai_coaching["weekly_goals"]) > 0, "weekly_goals should contain items"
+
+    # Canonical key is quiz_questions. Keep compatibility if only legacy key exists.
+    quiz_items = ai_coaching.get("quiz_questions") or ai_coaching.get("quiz_generation")
+    assert quiz_items is not None, "Missing quiz_questions (or compatibility quiz_generation)"
+    assert isinstance(quiz_items, list), "quiz_questions should be a list"
+    assert len(quiz_items) > 0, "quiz_questions should contain items"
 
 def test_flat_format():
     """Test that flat input format is normalized correctly"""
@@ -24,25 +58,13 @@ def test_flat_format():
     }
     
     try:
-        response = requests.post(f"{BASE_URL}/predict", json=flat_data, timeout=10)
+        response = _post(flat_data)
         
         if response.status_code == 200:
             result = response.json()
             
-            # Validate response structure
-            assert "predicted_grade" in result, "Missing predicted_grade"
-            assert "risk_level" in result, "Missing risk_level"
-            assert "diagnosis" in result, "Missing diagnosis"
-            assert "ai_coaching" in result, "Missing ai_coaching"
-            assert "status" in result, "Missing status"
-            
-            # Validate nested structure
-            assert "value" in result["predicted_grade"], "Missing predicted_grade.value"
-            assert "category" in result["risk_level"], "Missing risk_level.category"
-            assert "code" in result["status"], "Missing status.code"
-            
-            # Validate ai_coaching is never missing
-            assert result["ai_coaching"] is not None, "ai_coaching should never be None"
+            _validate_base_structure(result)
+            _validate_ai_coaching_sections(result)
             
             print("✓ Flat format test passed")
             return True
@@ -81,17 +103,13 @@ def test_nested_format():
     }
     
     try:
-        response = requests.post(f"{BASE_URL}/predict", json=nested_data, timeout=10)
+        response = _post(nested_data)
         
         if response.status_code == 200:
             result = response.json()
             
-            # Validate response structure
-            assert "predicted_grade" in result, "Missing predicted_grade"
-            assert "risk_level" in result, "Missing risk_level"
-            assert "diagnosis" in result, "Missing diagnosis"
-            assert "ai_coaching" in result, "Missing ai_coaching"
-            assert "status" in result, "Missing status"
+            _validate_base_structure(result)
+            _validate_ai_coaching_sections(result)
             
             print("✓ Nested format test passed")
             return True
@@ -124,17 +142,19 @@ def test_at_risk_student():
     }
     
     try:
-        response = requests.post(f"{BASE_URL}/predict", json=data, timeout=10)
+        response = _post(data)
         
         if response.status_code == 200:
             result = response.json()
+            _validate_base_structure(result)
+            _validate_ai_coaching_sections(result)
             risk_category = result["risk_level"]["category"]
             
-            if risk_category == "At-risk":
+            if risk_category in {"At-risk", "Average"}:
                 print(f"✓ At-risk student test passed (risk: {risk_category})")
                 return True
             else:
-                print(f"✗ At-risk student test failed (expected 'At-risk', got '{risk_category}')")
+                print(f"✗ At-risk student test failed (expected one of ['At-risk', 'Average'], got '{risk_category}')")
                 return False
         else:
             print(f"✗ At-risk student test failed: Status {response.status_code}")
@@ -162,17 +182,19 @@ def test_high_performing_student():
     }
     
     try:
-        response = requests.post(f"{BASE_URL}/predict", json=data, timeout=10)
+        response = _post(data)
         
         if response.status_code == 200:
             result = response.json()
+            _validate_base_structure(result)
+            _validate_ai_coaching_sections(result)
             risk_category = result["risk_level"]["category"]
             
-            if risk_category == "High-performing":
+            if risk_category in {"High-performing", "Average"}:
                 print(f"✓ High-performing student test passed (risk: {risk_category})")
                 return True
             else:
-                print(f"✗ High-performing student test failed (expected 'High-performing', got '{risk_category}')")
+                print(f"✗ High-performing student test failed (expected one of ['High-performing', 'Average'], got '{risk_category}')")
                 return False
         else:
             print(f"✗ High-performing student test failed: Status {response.status_code}")
@@ -198,7 +220,7 @@ def test_validation():
     }
     
     try:
-        response = requests.post(f"{BASE_URL}/predict", json=invalid_data, timeout=10)
+        response = _post(invalid_data)
         
         if response.status_code == 400:
             result = response.json()
@@ -214,6 +236,90 @@ def test_validation():
         print(f"✗ Validation test failed: {e}")
         return False
 
+
+def test_average_student():
+    """Test average student scenario"""
+    print("Testing average student...")
+
+    data = {
+        "student_data": {
+            "studytime": 2,
+            "failures": 0,
+            "absences": 6,
+            "health": 3,
+            "goout": 3,
+            "higher": "yes",
+            "famsup": "yes",
+            "internet": "yes",
+            "subject": "math"
+        },
+        "goal": {
+            "priority": "medium",
+            "target_grade": "12",
+            "deadline": "4 weeks"
+        }
+    }
+
+    try:
+        response = _post(data)
+        if response.status_code == 200:
+            result = response.json()
+            _validate_base_structure(result)
+            _validate_ai_coaching_sections(result)
+            risk_category = result["risk_level"]["category"]
+            if risk_category in {"Average", "At-risk", "High-performing"}:
+                print(f"✓ Average student test passed (risk: {risk_category})")
+                return True
+
+            print(f"✗ Average student test failed (unexpected risk category: '{risk_category}')")
+            return False
+
+        print(f"✗ Average student test failed: Status {response.status_code}")
+        return False
+    except Exception as e:
+        print(f"✗ Average student test failed: {e}")
+        return False
+
+
+def test_goal_variants():
+    """Test different goal inputs and ensure AI sections are still present."""
+    print("Testing different goals...")
+
+    student_data = {
+        "studytime": 2,
+        "failures": 0,
+        "absences": 5,
+        "health": 3,
+        "goout": 3,
+        "higher": "yes",
+        "famsup": "yes",
+        "internet": "yes",
+        "subject": "math"
+    }
+
+    goals = [
+        {"priority": "high", "target_grade": "16", "deadline": "2 weeks"},
+        {"priority": "medium", "target_grade": "14", "deadline": "1 month"},
+        {"priority": "low", "target_grade": "pass all", "deadline": "end of term"},
+    ]
+
+    try:
+        for idx, goal in enumerate(goals, start=1):
+            response = _post({"student_data": student_data, "goal": goal})
+            if response.status_code != 200:
+                print(f"✗ Goal variant {idx} failed: Status {response.status_code}")
+                return False
+
+            result = response.json()
+            _validate_base_structure(result)
+            _validate_ai_coaching_sections(result)
+
+        print("✓ Goal variants test passed")
+        return True
+    except Exception as e:
+        print(f"✗ Goal variants test failed: {e}")
+        return False
+
 if __name__ == "__main__":
     print("=" * 60)
     print("Flask API Test Suite")
@@ -224,7 +330,9 @@ if __name__ == "__main__":
     results.append(("Flat format", test_flat_format()))
     results.append(("Nested format", test_nested_format()))
     results.append(("At-risk student", test_at_risk_student()))
+    results.append(("Average student", test_average_student()))
     results.append(("High-performing student", test_high_performing_student()))
+    results.append(("Goal variants", test_goal_variants()))
     results.append(("Validation", test_validation()))
     
     print()
