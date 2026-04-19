@@ -50,7 +50,7 @@ const SelectField = ({
 }) => (
   <div className="relative">
     <select name={name} value={value} onChange={onChange}
-      className="w-full appearance-none px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-800 font-medium focus:outline-none focus:border-violet-500 transition-all cursor-pointer pr-10"
+      className="w-full min-h-[48px] appearance-none px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-800 font-medium focus:outline-none focus:border-violet-500 transition-all cursor-pointer pr-10"
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -143,6 +143,13 @@ export default function StudentForm() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [submitFeedback, setSubmitFeedback] = useState<string | null>(null);
+
+  const defaultDeadline = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+    return date.toISOString().split("T")[0];
+  })();
 
   const [form, setForm] = useState({
     school: "GP", sex: "F", age: 17, address: "U",
@@ -153,16 +160,22 @@ export default function StudentForm() {
     nursery: "yes", higher: "yes", internet: "yes", romantic: "no",
     famrel: 4, freetime: 3, goout: 2, Dalc: 1, Walc: 1, health: 3,
     absences: 0, subject: "math",
+    target_grade: 14, priority: "medium", deadline: defaultDeadline,
   });
 
-  const numFields = ["age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout","Dalc","Walc","health","absences"];
+  const numFields = ["age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout","Dalc","Walc","health","absences", "target_grade"];
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm(p => ({ ...p, [name]: numFields.includes(name) ? parseInt(value) : value }));
+    setForm(p => ({
+      ...p,
+      [name]: numFields.includes(name)
+        ? (value === "" ? 0 : Number.parseInt(value, 10))
+        : value,
+    }));
   };
   const onRange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(p => ({ ...p, [e.target.name]: parseInt(e.target.value) }));
+    setForm(p => ({ ...p, [e.target.name]: Number.parseInt(e.target.value, 10) }));
   };
   const onToggle = (name: string, val: string) => setForm(p => ({ ...p, [name]: val }));
   const onPick = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
@@ -170,14 +183,24 @@ export default function StudentForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitFeedback("Sending your profile to the AI coach...");
+
     try {
       const res = await fetch("/api/predict", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const json = res.ok ? await res.json() : null;
+
       sessionStorage.setItem("studentData", JSON.stringify(form));
-      if (json) sessionStorage.setItem("prediction", JSON.stringify(json));
-      else sessionStorage.removeItem("prediction");
+      if (json) {
+        sessionStorage.setItem("prediction", JSON.stringify(json));
+        setSubmitFeedback("AI response received. Preparing your recommendations...");
+      } else {
+        sessionStorage.removeItem("prediction");
+        setSubmitFeedback("AI service is temporarily unavailable. We will show a fallback analysis.");
+      }
     } catch {
       sessionStorage.setItem("studentData", JSON.stringify(form));
+      sessionStorage.removeItem("prediction");
+      setSubmitFeedback("Could not reach the AI service. Continuing with local fallback results.");
     }
     router.push("/recommendations");
   };
@@ -211,14 +234,14 @@ export default function StudentForm() {
           {steps.map(s => (
             <button type="button" key={s.id} onClick={() => setStep(s.id)}
               className="relative z-10 flex flex-col items-center gap-1.5">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+              <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                 step >= s.id
                   ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-200 scale-110 text-white"
                   : "bg-white border-2 border-slate-200 text-slate-400"
               }`}>
                 {step > s.id ? <StepIcons.Check /> : <s.Icon />}
               </div>
-              <span className={`text-xs font-bold transition-all ${step >= s.id ? "text-violet-600" : "text-slate-400"}`}>
+              <span className={`hidden sm:block text-xs font-bold transition-all ${step >= s.id ? "text-violet-600" : "text-slate-400"}`}>
                 {s.label}
               </span>
             </button>
@@ -230,14 +253,22 @@ export default function StudentForm() {
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
         <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
 
+          {submitFeedback && submitting && (
+            <div className="px-5 sm:px-8 pt-5 sm:pt-6">
+              <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700 font-medium">
+                {submitFeedback}
+              </div>
+            </div>
+          )}
+
           {step === 1 && (
-            <div className="p-8 space-y-6">
+            <div className="p-5 sm:p-8 space-y-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-800">Personal Information</h2>
                 <p className="text-slate-400 text-sm mt-1">Tell us a bit about yourself</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className={label}>School</label>
                   <SelectField name="school" value={form.school} onChange={onChange} options={[
                     { value: "GP", label: "Gabriel Pereira" },
@@ -276,13 +307,13 @@ export default function StudentForm() {
           )}
 
           {step === 2 && (
-            <div className="p-8 space-y-6">
+            <div className="p-5 sm:p-8 space-y-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-800">Family Background</h2>
                 <p className="text-slate-400 text-sm mt-1">Your home and family environment</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className={label}>Family Size</label>
                   <SelectField name="famsize" value={form.famsize} onChange={onChange} options={[
                     { value: "LE3", label: "≤ 3 members" },
@@ -309,7 +340,7 @@ export default function StudentForm() {
                   labels={["None","4th gr.","9th gr.","Secondary","Higher"]}/>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className={label}>Mother's Job</label>
                   <SelectField name="Mjob" value={form.Mjob} onChange={onChange} options={[
                     { value: "teacher",  label: "Teacher"  },
@@ -347,7 +378,7 @@ export default function StudentForm() {
           )}
 
           {step === 3 && (
-            <div className="p-8 space-y-6">
+            <div className="p-5 sm:p-8 space-y-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-800">Academic Profile</h2>
                 <p className="text-slate-400 text-sm mt-1">Your study habits and school performance</p>
@@ -381,10 +412,10 @@ export default function StudentForm() {
 
               <div>
                 <label className={label}>Number of Absences: {form.absences} days</label>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <input type="number" name="absences" value={form.absences} onChange={onChange}
                     min={0} max={93}
-                    className="w-28 px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-800 font-bold text-lg focus:outline-none focus:border-violet-500 text-center"/>
+                    className="w-full sm:w-28 min-h-[48px] px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-800 font-bold text-lg focus:outline-none focus:border-violet-500 text-center"/>
                   <span className="text-slate-400 text-sm">days missed this year</span>
                 </div>
               </div>
@@ -398,11 +429,60 @@ export default function StudentForm() {
                 <ToggleSwitch name="higher"     value={form.higher}     label="Wants to pursue higher education"    onChange={onToggle}/>
                 <ToggleSwitch name="internet"   value={form.internet}   label="Internet access at home"             onChange={onToggle}/>
               </div>
+
+              <div className="pt-2 border-t border-slate-100 space-y-5">
+                <div>
+                  <h3 className="text-lg font-black text-slate-800">Goal Setup</h3>
+                  <p className="text-slate-400 text-sm mt-1">Define your target so AI can personalize your plan</p>
+                </div>
+
+                <div>
+                  <label className={label}>Target Grade (0-20)</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-center">
+                    <RangeSlider name="target_grade" value={form.target_grade} min={0} max={20} onChange={onRange}/>
+                    <input
+                      type="number"
+                      name="target_grade"
+                      value={form.target_grade}
+                      min={0}
+                      max={20}
+                      onChange={onChange}
+                      className="w-full sm:w-24 px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-800 font-bold text-lg focus:outline-none focus:border-violet-500 text-center"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={label}>Priority</label>
+                  <SelectField
+                    name="priority"
+                    value={form.priority}
+                    onChange={onChange}
+                    options={[
+                      { value: "low", label: "Low - steady pace" },
+                      { value: "medium", label: "Medium - balanced" },
+                      { value: "high", label: "High - urgent" },
+                    ]}
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>Deadline</label>
+                  <input
+                    type="date"
+                    name="deadline"
+                    value={form.deadline}
+                    onChange={onChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-800 font-medium focus:outline-none focus:border-violet-500 transition-all"
+                  />
+                  <p className="text-xs text-slate-400 mt-2">Set a realistic date for your target grade.</p>
+                </div>
+              </div>
             </div>
           )}
 
           {step === 4 && (
-            <div className="p-8 space-y-6">
+            <div className="p-5 sm:p-8 space-y-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-800">Lifestyle & Wellbeing</h2>
                 <p className="text-slate-400 text-sm mt-1">Your social life and health habits</p>
@@ -446,7 +526,7 @@ export default function StudentForm() {
             </div>
           )}
 
-          <div className="px-8 pb-8 flex gap-3">
+          <div className="px-5 sm:px-8 pb-6 sm:pb-8 flex flex-col sm:flex-row gap-3">
             {step > 1 ? (
               <button type="button" onClick={() => setStep(s => s - 1)}
                 className="flex-1 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
