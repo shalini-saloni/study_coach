@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 // ── Type definitions ──────────────────────────────────────────────────────────
 
@@ -34,6 +33,42 @@ interface Resource {
 interface AICoaching {
   diagnosis_explanation: string;
   learning_diagnosis?: string;
+  weekly_goals?: Array<{
+    week_label: string;
+    focus: string;
+    goal: string;
+    tasks: string[];
+    success_criteria: string;
+    linked_weaknesses: string[];
+    linked_strengths: string[];
+  }>;
+  milestone_goals?: Array<{
+    milestone_name: string;
+    target: string;
+    timeframe: string;
+    linked_weeks: string[];
+    completion_check: string;
+    linked_weaknesses: string[];
+    linked_strengths: string[];
+  }>;
+  quiz_questions?: Array<{
+    question: string;
+    type: "multiple-choice" | "short-answer" | "open-response";
+    difficulty: "basic" | "intermediate" | "advanced";
+    topic: string;
+    choices: string[];
+    answer: string;
+    explanation: string;
+  }>;
+  quiz_generation?: Array<{
+    question: string;
+    type: "multiple-choice" | "short-answer" | "open-response";
+    difficulty: "basic" | "intermediate" | "advanced";
+    topic: string;
+    choices: string[];
+    answer: string;
+    explanation: string;
+  }>;
   study_plan: {
     overview: string;
     days: StudyDay[];
@@ -187,9 +222,162 @@ function resourceTypeBadge(type: string): { bg: string; text: string; label: str
   }
 }
 
+function normalizeNextSteps(nextSteps?: string[]): string[] {
+  const defaults = [
+    "Review today's learning outcomes and highlight one gap.",
+    "Plan a 25-minute study block for tonight.",
+    "Practice one weak topic using active recall.",
+    "Check your progress against the weekly goal.",
+    "Ask for help on one unclear concept.",
+  ];
+  const verbs = ["Review", "Plan", "Practice", "Check", "Ask"];
+  const items = Array.isArray(nextSteps) ? nextSteps.filter(Boolean).slice(0, 5) : [];
+  while (items.length < 5) {
+    items.push(defaults[items.length]);
+  }
+  return items.slice(0, 5).map((item, index) => {
+    const text = String(item || defaults[index]).trim();
+    return text.toLowerCase().startsWith(verbs[index].toLowerCase()) ? text : `${verbs[index]} ${text}`.trim();
+  });
+}
+
+function normalizeCoaching(aiCoaching: AICoaching | null, risk: string, diagnosis: Diagnosis | null): AICoaching {
+  const fallbackQuiz = [
+    {
+      question: "What is one effective way to review a weak topic?",
+      type: "multiple-choice" as const,
+      difficulty: "basic" as const,
+      topic: "study habits",
+      choices: ["Ignore it", "Use active recall", "Read once only", "Skip practice"],
+      answer: "Use active recall",
+      explanation: "Active recall helps turn review into retrieval practice.",
+    },
+    {
+      question: "Why should you check your mistakes after practice?",
+      type: "short-answer" as const,
+      difficulty: "intermediate" as const,
+      topic: "study habits",
+      choices: [],
+      answer: "To identify gaps and avoid repeating them.",
+      explanation: "Error review improves learning efficiency.",
+    },
+    {
+      question: "Explain how a weekly goal can help you improve.",
+      type: "open-response" as const,
+      difficulty: "intermediate" as const,
+      topic: "planning",
+      choices: [],
+      answer: "It breaks a larger target into smaller, trackable steps.",
+      explanation: "Weekly goals create measurable progress markers.",
+    },
+  ];
+
+  const fallback: AICoaching = {
+    diagnosis_explanation: diagnosis?.reason || "A personalized study plan is ready based on the submitted profile.",
+    learning_diagnosis: diagnosis?.reason || "A personalized study plan is ready based on the submitted profile.",
+    weekly_goals: [
+      {
+        week_label: "Week 1",
+        focus: "stabilize the routine",
+        goal: "Build a consistent study habit and focus on the main weakness.",
+        tasks: ["Review the weakest topic.", "Complete one daily study block.", "Write one question for support."],
+        success_criteria: "The student completes the planned tasks and can explain the improvement.",
+        linked_weaknesses: diagnosis?.weaknesses?.slice(0, 2) || [],
+        linked_strengths: diagnosis?.strengths?.slice(0, 2) || [],
+      },
+      {
+        week_label: "Week 2",
+        focus: "build recall habit",
+        goal: "Use active recall and short quizzes to reinforce learning.",
+        tasks: ["Test memory without notes.", "Review mistakes immediately.", "Repeat one weak topic."],
+        success_criteria: "The student shows better recall and fewer repeat mistakes.",
+        linked_weaknesses: diagnosis?.weaknesses?.slice(0, 2) || [],
+        linked_strengths: diagnosis?.strengths?.slice(0, 2) || [],
+      },
+      {
+        week_label: "Week 3",
+        focus: risk === "High-performing" ? "apply mastery" : "add timed practice",
+        goal: "Use timed work to improve speed and accuracy.",
+        tasks: ["Complete one timed set.", "Mark errors and revise them.", "Record one measurable win."],
+        success_criteria: "The student can compare results against Week 1.",
+        linked_weaknesses: diagnosis?.weaknesses?.slice(0, 2) || [],
+        linked_strengths: diagnosis?.strengths?.slice(0, 2) || [],
+      },
+    ],
+    milestone_goals: [
+      {
+        milestone_name: "Foundation checkpoint",
+        target: "Complete core fundamentals",
+        timeframe: "Mid-plan",
+        linked_weeks: ["Week 1", "Week 2"],
+        completion_check: "The student can demonstrate progress on the main weakness.",
+        linked_weaknesses: diagnosis?.weaknesses?.slice(0, 2) || [],
+        linked_strengths: diagnosis?.strengths?.slice(0, 2) || [],
+      },
+      {
+        milestone_name: "Consistency checkpoint",
+        target: "Sustain the study routine",
+        timeframe: "End of plan",
+        linked_weeks: ["Week 2", "Week 3"],
+        completion_check: "The student maintains a repeatable routine for a full week.",
+        linked_weaknesses: diagnosis?.weaknesses?.slice(0, 2) || [],
+        linked_strengths: diagnosis?.strengths?.slice(0, 2) || [],
+      },
+      {
+        milestone_name: "Outcome checkpoint",
+        target: "Reach the target grade",
+        timeframe: "Before the next assessment",
+        linked_weeks: ["Week 3"],
+        completion_check: "The student reaches the target on a mock test or quiz.",
+        linked_weaknesses: diagnosis?.weaknesses?.slice(0, 2) || [],
+        linked_strengths: diagnosis?.strengths?.slice(0, 2) || [],
+      },
+    ],
+    quiz_questions: fallbackQuiz,
+    quiz_generation: fallbackQuiz,
+    study_plan: {
+      overview: "Structured study plan with short practice cycles and weekly review.",
+      days: [
+        { day: "Monday", focus: "Review weak topics", tasks: ["Read notes", "Complete practice items"], duration: "25 min" },
+        { day: "Wednesday", focus: "Test recall", tasks: ["Do a mini quiz", "Check corrections"], duration: "20 min" },
+        { day: "Friday", focus: "Apply learning", tasks: ["Solve mixed questions", "Summarize mistakes"], duration: "30 min" },
+      ],
+    },
+    resources: [
+      { name: "Khan Academy", type: "website", url: "https://www.khanacademy.org/", why: "Free lessons and practice for core subjects." },
+      { name: "BBC Bitesize", type: "website", url: "https://www.bbc.co.uk/bitesize", why: "Clear revision guides and quizzes." },
+      { name: "Quizlet", type: "website", url: "https://quizlet.com/", why: "Flashcards and quick review tools." },
+    ],
+    next_steps: normalizeNextSteps(),
+    ai_generated: false,
+  };
+
+  if (!aiCoaching) return fallback;
+
+  const quizQuestions = aiCoaching.quiz_questions?.length
+    ? aiCoaching.quiz_questions
+    : aiCoaching.quiz_generation?.length
+      ? aiCoaching.quiz_generation
+      : fallback.quiz_questions;
+
+  return {
+    ...fallback,
+    ...aiCoaching,
+    diagnosis_explanation: aiCoaching.diagnosis_explanation || aiCoaching.learning_diagnosis || fallback.diagnosis_explanation,
+    learning_diagnosis: aiCoaching.learning_diagnosis || aiCoaching.diagnosis_explanation || fallback.learning_diagnosis,
+    weekly_goals: aiCoaching.weekly_goals?.length ? aiCoaching.weekly_goals : fallback.weekly_goals,
+    milestone_goals: aiCoaching.milestone_goals?.length ? aiCoaching.milestone_goals : fallback.milestone_goals,
+    quiz_questions: quizQuestions,
+    quiz_generation: quizQuestions,
+    study_plan: aiCoaching.study_plan?.days?.length ? aiCoaching.study_plan : fallback.study_plan,
+    resources: aiCoaching.resources?.length ? aiCoaching.resources : fallback.resources,
+    next_steps: normalizeNextSteps(aiCoaching.next_steps),
+    ai_generated: Boolean(aiCoaching.ai_generated),
+  };
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Recommendations() {
-  const router = useRouter();
   const [data, setData] = useState<StudentData | null>(null);
   const [risk, setRisk] = useState("");
   const [score, setScore] = useState(0);
@@ -199,13 +387,19 @@ export default function Recommendations() {
   const [loading, setLoading] = useState(true);
   const [openDay, setOpenDay] = useState<number | null>(0); // First day open by default
   const [openRec, setOpenRec] = useState<number | null>(null);
+  const [openQuiz, setOpenQuiz] = useState<number | null>(0);
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
-  const [activeTab, setActiveTab] = useState<"plan" | "resources">("plan");
+  const [apiWarning, setApiWarning] = useState<string | null>(null);
+  const [missingInputData, setMissingInputData] = useState(false);
 
   useEffect(() => {
     (async () => {
       const raw = sessionStorage.getItem("studentData");
-      if (!raw) { router.push("/form"); return; }
+      if (!raw) {
+        setMissingInputData(true);
+        setLoading(false);
+        return;
+      }
       const sd: StudentData = JSON.parse(raw);
       setData(sd);
 
@@ -260,6 +454,7 @@ export default function Recommendations() {
         const r = calcRiskLocally(sd);
         finalGrade = calcGradeLocally(sd, r);
         finalRisk = gradeToRisk(finalGrade);
+        setApiWarning("Live AI service is unavailable. Showing fallback recommendations from your submitted profile.");
       }
 
       setScore(finalGrade);
@@ -267,7 +462,7 @@ export default function Recommendations() {
       setRecs(generateRecommendations(sd, finalRisk));
       setLoading(false);
     })();
-  }, [router]);
+  }, []);
 
   const toggleStep = (idx: number) => {
     setCheckedSteps(prev => {
@@ -279,15 +474,38 @@ export default function Recommendations() {
   };
 
   if (loading || !data) {
+    if (missingInputData) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-violet-50 to-fuchsia-50 px-4">
+          <div className="w-full max-w-md bg-white rounded-3xl border border-violet-100 shadow-xl shadow-violet-100 p-8 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center mx-auto">
+              <I.Warning />
+            </div>
+            <h2 className="text-xl font-black text-slate-800">No Student Profile Found</h2>
+            <p className="text-sm text-slate-500">Please complete the form first so we can generate your personalized recommendations.</p>
+            <Link href="/form" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold">
+              Go To Form
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-violet-50 to-fuchsia-50">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-5 w-full max-w-md px-4">
           <div className="w-16 h-16 mx-auto relative">
             <div className="absolute inset-0 rounded-full border-4 border-violet-200" />
             <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-violet-600 animate-spin" />
           </div>
           <p className="text-slate-500 font-medium">Analyzing your profile with AI...</p>
           <p className="text-slate-400 text-sm">Generating your personalized study coaching</p>
+          <div className="space-y-2 pt-2">
+            <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 w-2/3 animate-pulse" />
+            </div>
+            <p className="text-xs text-slate-400">This usually takes a few seconds</p>
+          </div>
         </div>
       </div>
     );
@@ -303,6 +521,14 @@ export default function Recommendations() {
   const gaugeColor = score >= 15 ? "#10b981" : score >= 10 ? "#f59e0b" : "#ef4444";
   const circ = 2 * Math.PI * 52;
   const dash = (score / 20) * circ;
+
+  const coaching = normalizeCoaching(aiCoaching, risk, diagnosis);
+  const quizItems = coaching.quiz_questions ?? coaching.quiz_generation ?? [];
+  const weeklyGoals = coaching.weekly_goals ?? [];
+  const milestoneGoals = coaching.milestone_goals ?? [];
+  const studyPlan = coaching.study_plan;
+  const resources = coaching.resources ?? [];
+  const nextSteps = normalizeNextSteps(coaching.next_steps);
 
   const statusColors: Record<Status, { bar: string; badge: string }> = {
     "good": { bar: "from-emerald-400 to-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
@@ -320,11 +546,11 @@ export default function Recommendations() {
     { label: "Health", value: data.health, max: 5, status: data.health >= 4 ? "good" : data.health >= 3 ? "average" : "needs-improvement", display: `${data.health}/5`, Icon: "Heart" },
   ];
 
-  const hasAI = aiCoaching !== null;
+  const reportSourceLabel = coaching.ai_generated ? "Powered by AI Coach" : "AI-Enhanced Coaching";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50 to-fuchsia-50 py-10 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="text-center">
@@ -334,18 +560,22 @@ export default function Recommendations() {
             </span>
           </Link>
           <h2 className="mt-3 text-xl font-bold text-slate-700">Your Personalized Study Plan</h2>
-          {hasAI && (
-            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-violet-100 to-fuchsia-100 border border-violet-200">
+          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-violet-100 to-fuchsia-100 border border-violet-200">
               <I.Sparkles />
               <span className="text-xs font-bold text-violet-700">
-                {aiCoaching.ai_generated ? "Powered by AI Coach" : "AI-Enhanced Coaching"}
+                {reportSourceLabel}
               </span>
-            </div>
-          )}
+          </div>
         </div>
 
+        {apiWarning && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 font-medium">
+            {apiWarning}
+          </div>
+        )}
+
         {/* Score + Risk */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-8">
+        <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-5 sm:p-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
             {/* Gauge */}
             <div className="flex flex-col items-center gap-4">
@@ -388,11 +618,11 @@ export default function Recommendations() {
         </div>
 
         {/* ━━━ AI DIAGNOSIS SECTION ━━━ */}
-        {hasAI && aiCoaching.diagnosis_explanation && (
+        {coaching.diagnosis_explanation && (
           <div className="relative bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
             {/* Gradient accent bar */}
             <div className={`h-1.5 bg-gradient-to-r ${riskCfg.gradient}`} />
-            <div className="p-8">
+            <div className="p-5 sm:p-8">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
                   <I.Brain />
@@ -403,8 +633,8 @@ export default function Recommendations() {
                 </div>
               </div>
               <div className="bg-gradient-to-br from-slate-50 to-violet-50/50 rounded-2xl p-6 border border-slate-100">
-                <p className="text-slate-700 leading-relaxed text-[15px]">
-                  {aiCoaching.diagnosis_explanation}
+                <p className="text-slate-700 leading-relaxed text-[15px] break-words">
+                  {coaching.diagnosis_explanation}
                 </p>
               </div>
               {/* Strengths & Weaknesses pills */}
@@ -428,123 +658,169 @@ export default function Recommendations() {
           </div>
         )}
 
-        {/* Factor Analysis */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-8">
-          <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
-              <I.BarChart />
-            </span>
-            Key Factor Analysis
-          </h3>
-          <div className="space-y-5">
-            {factors.map((f, idx) => {
-              const sc = statusColors[f.status];
-              const Icon = I[f.Icon];
-              return (
-                <div key={idx} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <span className="text-slate-400"><Icon /></span>
-                      {f.label}
-                      <span className="text-slate-400 font-normal text-xs">({f.display})</span>
-                    </span>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${sc.badge}`}>
-                      {f.status === "good" ? "Good" : f.status === "average" ? "Average" : "Needs Work"}
-                    </span>
-                  </div>
-                  <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full bg-gradient-to-r ${sc.bar} transition-all duration-700`}
-                      style={{ width: `${(f.value / f.max) * 100}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ━━━ AI STUDY PLAN & RESOURCES (Tabbed) ━━━ */}
-        {hasAI && (
-          <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
-            {/* Tab headers */}
-            <div className="flex border-b border-slate-100">
-              <button
-                onClick={() => setActiveTab("plan")}
-                className={`flex-1 py-4 px-6 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                  activeTab === "plan"
-                    ? "text-violet-700 border-b-2 border-violet-500 bg-violet-50/50"
-                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <I.Calendar /> Weekly Study Plan
-              </button>
-              <button
-                onClick={() => setActiveTab("resources")}
-                className={`flex-1 py-4 px-6 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                  activeTab === "resources"
-                    ? "text-violet-700 border-b-2 border-violet-500 bg-violet-50/50"
-                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <I.Globe /> Resources
-              </button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-8 space-y-6">
+            {/* Factor Analysis */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-5 sm:p-8">
+              <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
+                  <I.BarChart />
+                </span>
+                Key Factor Analysis
+              </h3>
+              <div className="space-y-5">
+                {factors.map((f, idx) => {
+                  const sc = statusColors[f.status];
+                  const Icon = I[f.Icon];
+                  return (
+                    <div key={idx} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          <span className="text-slate-400"><Icon /></span>
+                          {f.label}
+                          <span className="text-slate-400 font-normal text-xs">({f.display})</span>
+                        </span>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${sc.badge}`}>
+                          {f.status === "good" ? "Good" : f.status === "average" ? "Average" : "Needs Work"}
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full bg-gradient-to-r ${sc.bar} transition-all duration-700`}
+                          style={{ width: `${(f.value / f.max) * 100}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="p-8">
-              {/* ── Study Plan Tab ─────────────────────────────────────────── */}
-              {activeTab === "plan" && aiCoaching.study_plan && (
-                <div>
-                  <p className="text-sm text-slate-500 mb-6 italic">{aiCoaching.study_plan.overview}</p>
-                  <div className="space-y-3">
-                    {aiCoaching.study_plan.days?.map((day, idx) => {
-                      const isOpen = openDay === idx;
-                      const dc = dayColors[day.day] ?? dayColors.Monday;
-                      return (
-                        <div key={idx} className={`rounded-2xl border-2 transition-all duration-200 overflow-hidden ${
-                          isOpen ? `${dc.border} ${dc.bg}` : "border-slate-100 hover:border-slate-200"
-                        }`}>
-                          <button
-                            onClick={() => setOpenDay(isOpen ? null : idx)}
-                            className="w-full text-left px-5 py-4 flex items-center gap-3"
-                          >
-                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dc.dot}`} />
-                            <div className="flex-1">
-                              <span className={`text-sm font-bold ${isOpen ? dc.text : "text-slate-700"}`}>
-                                {day.day}
-                              </span>
-                              <span className="text-xs text-slate-400 ml-2">— {day.focus}</span>
+            {/* ━━━ AI STUDY PLAN ━━━ */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
+              <div className="p-5 sm:p-8">
+                <h3 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
+                    <I.Calendar />
+                  </span>
+                  Study Plan
+                </h3>
+                <p className="text-sm text-slate-500 mb-6 break-words">{studyPlan.overview}</p>
+                <div className="space-y-3">
+                  {studyPlan.days?.map((day, idx) => {
+                    const isOpen = openDay === idx;
+                    const dc = dayColors[day.day] ?? dayColors.Monday;
+                    return (
+                      <div key={idx} className={`rounded-2xl border-2 transition-all duration-200 overflow-hidden ${isOpen ? `${dc.border} ${dc.bg}` : "border-slate-100 hover:border-slate-200"}`}>
+                        <button onClick={() => setOpenDay(isOpen ? null : idx)} className="w-full text-left px-5 py-4 flex items-center gap-3">
+                          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dc.dot}`} />
+                          <div className="flex-1">
+                            <span className={`text-sm font-bold ${isOpen ? dc.text : "text-slate-700"}`}>{day.day}</span>
+                            <span className="text-xs text-slate-400 ml-2">— {day.focus}</span>
+                          </div>
+                          <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{day.duration}</span>
+                          <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+                            <I.ChevronDown />
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="px-5 pb-4">
+                            <div className="pl-5 border-l-2 border-slate-200 space-y-2">
+                              {day.tasks?.map((task, tIdx) => (
+                                <div key={tIdx} className="flex items-start gap-2 text-sm text-slate-600">
+                                  <span className="text-violet-400 mt-0.5 flex-shrink-0"><I.CheckCircle /></span>
+                                  <span className="break-words">{task}</span>
+                                </div>
+                              ))}
                             </div>
-                            <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                              {day.duration}
-                            </span>
-                            <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
-                              <I.ChevronDown />
-                            </span>
-                          </button>
-                          {isOpen && (
-                            <div className="px-5 pb-4">
-                              <div className="pl-5 border-l-2 border-slate-200 space-y-2">
-                                {day.tasks?.map((task, tIdx) => (
-                                  <div key={tIdx} className="flex items-start gap-2 text-sm text-slate-600">
-                                    <span className="text-violet-400 mt-0.5 flex-shrink-0">
-                                      <I.CheckCircle />
-                                    </span>
-                                    <span>{task}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+            </div>
 
-              {/* ── Resources Tab ──────────────────────────────────────────── */}
-              {activeTab === "resources" && aiCoaching.resources && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {aiCoaching.resources.map((res, idx) => {
+            {/* ━━━ WEEKLY GOALS ━━━ */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500" />
+              <div className="p-5 sm:p-8">
+                <h3 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white">
+                    <I.Target />
+                  </span>
+                  Weekly Goals
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                  {weeklyGoals.map((goal, idx) => (
+                    <div key={idx} className="rounded-2xl border-2 border-slate-100 bg-gradient-to-br from-slate-50 to-violet-50/50 p-5">
+                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">{goal.week_label}</p>
+                      <h4 className="text-sm font-black text-slate-800 mt-1">{goal.focus}</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed mt-3 break-words">{goal.goal}</p>
+                      <div className="mt-3 space-y-2">
+                        {goal.tasks?.map((task, taskIdx) => (
+                          <div key={taskIdx} className="flex items-start gap-2 text-sm text-slate-600">
+                            <span className="text-emerald-500 mt-0.5 flex-shrink-0"><I.CheckCircle /></span>
+                            <span className="break-words">{task}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-slate-200">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Success Criteria</p>
+                        <p className="text-xs text-slate-600 leading-relaxed break-words">{goal.success_criteria}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ━━━ MILESTONES ━━━ */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-amber-500 to-orange-500" />
+              <div className="p-5 sm:p-8">
+                <h3 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
+                    <I.Star />
+                  </span>
+                  Milestones
+                </h3>
+                <div className="space-y-3 mt-5">
+                  {milestoneGoals.map((milestone, idx) => (
+                    <div key={idx} className="rounded-2xl border-2 border-slate-100 p-4 bg-white">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-amber-500">{milestone.milestone_name}</p>
+                          <h4 className="text-sm font-black text-slate-800 mt-1">{milestone.target}</h4>
+                          <p className="text-xs text-slate-400 mt-1">{milestone.timeframe}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {(milestone.linked_weeks || []).map((week, weekIdx) => (
+                            <span key={`week-${idx}-${weekIdx}`} className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                              {week}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-3 leading-relaxed break-words">{milestone.completion_check}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ━━━ RESOURCES ━━━ */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500" />
+              <div className="p-5 sm:p-8">
+                <h3 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white">
+                    <I.Globe />
+                  </span>
+                  Resources
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+                  {resources.map((res, idx) => {
                     const badge = resourceTypeBadge(res.type);
                     const RIcon = I[resourceIcon(res.type)];
                     const isExternal = res.url && res.url !== "#" && res.url.startsWith("http");
@@ -555,151 +831,213 @@ export default function Recommendations() {
                             <RIcon />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold text-slate-800 truncate">{res.name}</h4>
+                            <h4 className="text-sm font-bold text-slate-800 break-words">{res.name}</h4>
                             <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mt-1 ${badge.bg} ${badge.text}`}>
                               {badge.label}
                             </span>
                           </div>
                         </div>
-                        <p className="text-xs text-slate-500 leading-relaxed flex-1">{res.why}</p>
+                        <p className="text-xs text-slate-500 leading-relaxed flex-1 break-words">{res.why}</p>
                         {isExternal && (
                           <a href={res.url} target="_blank" rel="noopener noreferrer"
                             className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-800 transition-colors"
                           >
                             <I.Link /> Open Resource
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
                           </a>
                         )}
                       </div>
                     );
                   })}
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ━━━ AI NEXT STEPS ━━━ */}
-        {hasAI && aiCoaching.next_steps && aiCoaching.next_steps.length > 0 && (
-          <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
-            <div className="p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
-                  <I.Rocket />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800">Next Steps</h3>
-                  <p className="text-xs text-slate-400">Your immediate action items — check them off as you go</p>
-                </div>
               </div>
-              <div className="space-y-3">
-                {aiCoaching.next_steps.map((step, idx) => {
-                  const checked = checkedSteps.has(idx);
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => toggleStep(idx)}
-                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 flex items-start gap-3 ${
-                        checked
-                          ? "border-emerald-200 bg-emerald-50"
-                          : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/30"
-                      }`}
-                    >
-                      <div className={`flex-shrink-0 mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                        checked
-                          ? "border-emerald-500 bg-emerald-500"
-                          : "border-slate-300"
-                      }`}>
-                        {checked && (
-                          <svg fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3} className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
+            </div>
+
+            {/* ━━━ PRACTICE QUIZ ━━━ */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-fuchsia-500 to-violet-500" />
+              <div className="p-5 sm:p-8">
+                <h3 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-500 flex items-center justify-center text-white">
+                    <I.Bulb />
+                  </span>
+                  Practice Quiz
+                </h3>
+                <div className="space-y-3 mt-5">
+                  {quizItems.map((quizItem, idx) => {
+                    const isOpen = openQuiz === idx;
+                    const difficultyBadge = quizItem.difficulty === "basic"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : quizItem.difficulty === "advanced"
+                        ? "bg-violet-100 text-violet-700"
+                        : "bg-amber-100 text-amber-700";
+                    return (
+                      <div key={idx} className={`rounded-2xl border-2 transition-all duration-200 overflow-hidden ${isOpen ? "border-violet-200 bg-violet-50/40" : "border-slate-100 hover:border-slate-200"}`}>
+                        <button onClick={() => setOpenQuiz(isOpen ? null : idx)} className="w-full text-left px-5 py-4 flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <I.CheckCircle />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <span className="text-xs font-bold uppercase tracking-wider text-blue-500">{quizItem.topic}</span>
+                              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${difficultyBadge}`}>{quizItem.difficulty}</span>
+                              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">{quizItem.type}</span>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-700 leading-relaxed break-words">{quizItem.question}</p>
+                          </div>
+                          <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+                            <I.ChevronDown />
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="px-5 pb-5">
+                            {quizItem.choices?.length > 0 && (
+                              <div className="grid gap-2 mb-4">
+                                {quizItem.choices.map((choice, choiceIdx) => (
+                                  <div key={choiceIdx} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 break-words">
+                                    {choice}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="rounded-2xl border border-violet-200 bg-white p-4 space-y-3">
+                              <div>
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Correct Answer</p>
+                                <p className="text-sm text-slate-700 leading-relaxed break-words">{quizItem.answer}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Explanation</p>
+                                <p className="text-sm text-slate-600 leading-relaxed break-words">{quizItem.explanation}</p>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <span className="text-xs font-bold text-violet-500 uppercase tracking-wider">Step {idx + 1}</span>
-                        <p className={`text-sm font-medium mt-0.5 leading-relaxed transition-all ${
-                          checked ? "text-slate-400 line-through" : "text-slate-700"
-                        }`}>
-                          {step}
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Fallback Recommendations (always shown) */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-5 sm:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
+                  <I.Sparkles />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800">
+                    Additional Tips
+                  </h3>
+                  <p className="text-xs text-slate-400">{recs.length} tailored suggestions for you</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {recs.map((rec, idx) => {
+                  const isOpen = openRec === idx;
+                  const Icon = I[rec.icon];
+                  return (
+                    <button key={idx} type="button"
+                      onClick={() => setOpenRec(isOpen ? null : idx)}
+                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 ${isOpen ? "border-violet-300 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isOpen ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-500"
+                          }`}>
+                          <Icon />
+                        </div>
+                        <p className={`flex-1 text-sm font-semibold leading-snug ${isOpen ? "text-violet-700" : "text-slate-700"}`}>
+                          {rec.text}
                         </p>
+                        <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+                          <I.ChevronDown />
+                        </span>
                       </div>
                     </button>
                   );
                 })}
               </div>
-              {/* Progress */}
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-slate-400">Progress</span>
-                  <span className="text-xs font-bold text-violet-600">{checkedSteps.size}/{aiCoaching.next_steps.length} completed</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
-                    style={{ width: `${(checkedSteps.size / aiCoaching.next_steps.length) * 100}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Fallback Recommendations (always shown) */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
-              <I.Sparkles />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-800">
-                {hasAI ? "Additional Tips" : "Personalized Recommendations"}
-              </h3>
-              <p className="text-xs text-slate-400">{recs.length} tailored suggestions for you</p>
             </div>
           </div>
 
-          <div className="space-y-2.5">
-            {recs.map((rec, idx) => {
-              const isOpen = openRec === idx;
-              const Icon = I[rec.icon];
-              return (
-                <button key={idx} type="button"
-                  onClick={() => setOpenRec(isOpen ? null : idx)}
-                  className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 ${isOpen ? "border-violet-300 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"
-                    }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isOpen ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-500"
-                      }`}>
-                      <Icon />
+          <aside className="lg:col-span-4 lg:sticky lg:top-6 space-y-6">
+            {/* ━━━ AI NEXT STEPS ━━━ */}
+                <div className="bg-white rounded-3xl shadow-xl shadow-violet-100 border border-violet-100 overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
+                        <I.Rocket />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-slate-800">Next Steps</h3>
+                        <p className="text-xs text-slate-400">Exactly 5 action items</p>
+                      </div>
                     </div>
-                    <p className={`flex-1 text-sm font-semibold leading-snug ${isOpen ? "text-violet-700" : "text-slate-700"}`}>
-                      {rec.text}
-                    </p>
-                    <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
-                      <I.ChevronDown />
-                    </span>
+                    <div className="space-y-2.5">
+                      {nextSteps.map((step, idx) => {
+                        const checked = checkedSteps.has(idx);
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => toggleStep(idx)}
+                            className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-200 flex items-start gap-3 ${
+                              checked
+                                ? "border-emerald-200 bg-emerald-50"
+                                : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/30"
+                            }`}
+                          >
+                            <div className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                              checked
+                                ? "border-emerald-500 bg-emerald-500"
+                                : "border-slate-300"
+                            }`}>
+                              {checked && (
+                                <svg fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3} className="w-3.5 h-3.5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-[11px] font-bold text-violet-500 uppercase tracking-wider">Step {idx + 1}</span>
+                              <p className={`text-sm font-medium mt-0.5 leading-relaxed transition-all ${
+                                checked ? "text-slate-400 line-through" : "text-slate-700"
+                              }`}>
+                                {step}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-slate-400">Progress</span>
+                        <span className="text-xs font-bold text-violet-600">{checkedSteps.size}/5 completed</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
+                          style={{ width: `${(checkedSteps.size / 5) * 100}%` }} />
+                      </div>
+                    </div>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 pb-6">
-          <Link href="/form"
-            className="flex-1 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-center hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-          >
-            <I.ChevronLeft /> Edit Profile
-          </Link>
-          <button onClick={() => window.print()}
-            className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold shadow-lg shadow-violet-200 hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-          >
-            <I.Printer /> Save Report
-          </button>
+            {/* Actions */}
+            <div className="flex flex-col gap-3 pb-2">
+              <Link href="/form"
+                className="py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-center hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+              >
+                <I.ChevronLeft /> Edit Profile
+              </Link>
+              <button onClick={() => window.print()}
+                className="py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold shadow-lg shadow-violet-200 hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+              >
+                <I.Printer /> Save Report
+              </button>
+            </div>
+          </aside>
         </div>
 
       </div>
