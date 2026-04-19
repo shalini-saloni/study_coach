@@ -169,13 +169,82 @@ def validate_response(response):
         return False, "risk_level missing 'category' field"
     if 'code' not in response['status']:
         return False, "status missing 'code' field"
+
+    ai_coaching = response.get('ai_coaching') or {}
+    required_ai_keys = ['learning_diagnosis', 'weekly_goals', 'milestone_goals', 'quiz_questions', 'study_plan', 'resources', 'next_steps']
+    for key in required_ai_keys:
+        if key not in ai_coaching:
+            return False, f"ai_coaching missing '{key}' field"
+
+    if not isinstance(ai_coaching.get('next_steps', []), list) or len(ai_coaching.get('next_steps', [])) != 5:
+        return False, "ai_coaching next_steps must contain exactly 5 items"
+
+    if not ai_coaching.get('quiz_questions') and not ai_coaching.get('quiz_generation'):
+        return False, "ai_coaching missing quiz questions"
     
     return True, None
 
 def get_default_ai_coaching():
     """Return default AI coaching structure when AI fails"""
+    default_quiz = [
+        {
+            "question": "What is 2 + 3?",
+            "type": "multiple-choice",
+            "difficulty": "basic",
+            "topic": "math",
+            "choices": ["4", "5", "6", "7"],
+            "answer": "5",
+            "explanation": "This is a simple warm-up question to check basic recall."
+        },
+        {
+            "question": "What should you review after missing a class?",
+            "type": "short-answer",
+            "difficulty": "basic",
+            "topic": "study habits",
+            "choices": [],
+            "answer": "The notes and the missed topic.",
+            "explanation": "This keeps the student focused on the most relevant next step."
+        },
+        {
+            "question": "Why is active recall more effective than rereading notes?",
+            "type": "open-response",
+            "difficulty": "intermediate",
+            "topic": "study habits",
+            "choices": [],
+            "answer": "It forces the brain to retrieve information, which strengthens memory.",
+            "explanation": "This checks understanding of a high-value study strategy."
+        }
+    ]
     return {
         "learning_diagnosis": "AI coaching unavailable. Using rule-based recommendations.",
+        "weekly_goals": [
+            {
+                "week_label": "Week 1",
+                "focus": "rebuild the study routine",
+                "goal": "Restart with one stable weekly habit",
+                "tasks": [
+                    "Complete one focused study block tonight.",
+                    "Review the weakest topic for 20 minutes.",
+                    "Write down one question to ask a teacher or peer."
+                ],
+                "success_criteria": "The student completes the plan and can explain what was reviewed.",
+                "linked_weaknesses": [],
+                "linked_strengths": []
+            }
+        ],
+        "milestone_goals": [
+            {
+                "milestone_name": "First checkpoint",
+                "target": "stabilize performance",
+                "timeframe": "By the next review cycle",
+                "linked_weeks": ["Week 1"],
+                "completion_check": "The student can show one measurable improvement.",
+                "linked_weaknesses": [],
+                "linked_strengths": []
+            }
+        ],
+        "quiz_questions": default_quiz,
+        "quiz_generation": default_quiz,
         "study_plan": {
             "overview": "Standard study plan based on your academic profile",
             "days": []
@@ -190,6 +259,49 @@ def get_default_ai_coaching():
         ],
         "ai_generated": False
     }
+
+def normalize_ai_coaching(ai_coaching, student_data, diagnosis, risk_level, goal):
+    """Normalize and repair AI coaching so every required section is present."""
+    defaults = get_default_ai_coaching()
+    coaching = dict(defaults)
+
+    if isinstance(ai_coaching, dict):
+        coaching.update(ai_coaching)
+
+    if not coaching.get('learning_diagnosis'):
+        coaching['learning_diagnosis'] = defaults['learning_diagnosis']
+
+    if not coaching.get('weekly_goals'):
+        coaching['weekly_goals'] = defaults['weekly_goals']
+    if not coaching.get('milestone_goals'):
+        coaching['milestone_goals'] = defaults['milestone_goals']
+
+    if not coaching.get('study_plan'):
+        coaching['study_plan'] = defaults['study_plan']
+    if not coaching.get('resources'):
+        coaching['resources'] = defaults['resources']
+
+    if not coaching.get('quiz_questions') and coaching.get('quiz_generation'):
+        coaching['quiz_questions'] = coaching['quiz_generation']
+    if not coaching.get('quiz_questions'):
+        coaching['quiz_questions'] = defaults['quiz_questions']
+    coaching['quiz_generation'] = coaching['quiz_questions']
+
+    action_verbs = ['Review', 'Plan', 'Practice', 'Check', 'Ask']
+    next_steps = coaching.get('next_steps') or defaults['next_steps']
+    normalized_steps = []
+    for idx, step in enumerate(list(next_steps)[:5]):
+        text = str(step).strip()
+        verb = action_verbs[idx]
+        if not text.lower().startswith(tuple(v.lower() for v in action_verbs)):
+            text = f"{verb} {text}".strip()
+        normalized_steps.append(text)
+    while len(normalized_steps) < 5:
+        normalized_steps.append(defaults['next_steps'][len(normalized_steps)])
+    coaching['next_steps'] = normalized_steps[:5]
+
+    coaching['ai_generated'] = bool(coaching.get('ai_generated', True))
+    return coaching
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -293,6 +405,13 @@ def predict():
         # Ensure ai_coaching is never None
         if ai_coaching is None:
             ai_coaching = get_default_ai_coaching()
+        ai_coaching = normalize_ai_coaching(
+            ai_coaching,
+            data.get('student_data', data),
+            diagnosis,
+            risk_level,
+            str(goal)
+        )
         
         # Calculate risk score
         risk_score = 0
